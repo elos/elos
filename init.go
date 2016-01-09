@@ -19,11 +19,6 @@ func init() {
 	UI = &cli.BasicUi{Writer: os.Stdout, Reader: os.Stdin}
 
 	Commands = map[string]cli.CommandFactory{
-		"host": func() (cli.Command, error) {
-			return &command.HostCommand{
-				Ui: UI,
-			}, nil
-		},
 		"conf": func() (cli.Command, error) {
 			return &command.ConfCommand{
 				Ui:     UI,
