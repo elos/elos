@@ -1,11 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/user"
 	"path"
 
+	"github.com/elos/data"
 	"github.com/elos/elos/command"
+	"github.com/elos/models"
 	"github.com/mitchellh/cli"
 )
 
@@ -17,6 +20,30 @@ var (
 
 func init() {
 	UI = &cli.BasicUi{Writer: os.Stdout, Reader: os.Stdin}
+
+	user, err := user.Current()
+	if err != nil {
+		UI.Error(err.Error())
+		os.Exit(1)
+	}
+
+	configPath := path.Join(user.HomeDir, command.ConfigFileName)
+
+	c, err := command.ParseConfigFile(configPath)
+	if err != nil {
+		UI.Error(err.Error())
+		os.Exit(1)
+	}
+
+	Configuration = c
+
+	var db data.DB
+	var databaseError error
+	if Configuration.DB != "" {
+		db, databaseError = models.MongoDB(Configuration.DB)
+	} else {
+		databaseError = fmt.Errorf("No databse listed")
+	}
 
 	Commands = map[string]cli.CommandFactory{
 		"auth": func() (cli.Command, error) {
@@ -47,23 +74,9 @@ func init() {
 			return &command.NoteCommand{
 				Ui:     UI,
 				Config: Configuration,
-			}, nil
+				DB:     db,
+			}, databaseError
 		},
 	}
 
-	user, err := user.Current()
-	if err != nil {
-		UI.Error(err.Error())
-		os.Exit(1)
-	}
-
-	configPath := path.Join(user.HomeDir, command.ConfigFileName)
-
-	c, err := command.ParseConfigFile(configPath)
-	if err != nil {
-		UI.Error(err.Error())
-		os.Exit(1)
-	}
-
-	Configuration = c
 }

@@ -12,6 +12,7 @@ import (
 type NoteCommand struct {
 	Ui cli.Ui
 	*Config
+	data.DB
 }
 
 func (c *NoteCommand) Help() string {
@@ -23,18 +24,10 @@ func (c *NoteCommand) Run(args []string) int {
 	case 0:
 		c.Ui.Output(c.Help())
 	case 1:
-		if c.Config.DB == "" {
+		if c.DB == nil {
 			c.Ui.Error("No database listed")
 			return 1
 		}
-
-		c.Ui.Info("Connecting to db...")
-		db, err := models.MongoDB(c.Config.DB)
-		if err != nil {
-			c.Ui.Error(err.Error())
-			return 1
-		}
-		c.Ui.Info("Connected")
 
 		if c.Config.UserID == "" {
 			c.Ui.Error("No user id listed")
@@ -49,13 +42,13 @@ func (c *NoteCommand) Run(args []string) int {
 			}
 
 			note := models.NewNote()
-			note.SetID(db.NewID())
+			note.SetID(c.DB.NewID())
 			note.OwnerId = c.Config.UserID
 			note.CreatedAt = time.Now()
 			note.Text = text
 			note.UpdatedAt = time.Now()
 
-			err = db.Save(note)
+			err = c.DB.Save(note)
 			if err != nil {
 				c.Ui.Error("Failed to save note")
 				return 1
@@ -63,7 +56,7 @@ func (c *NoteCommand) Run(args []string) int {
 
 			c.Ui.Output("Noted")
 		case "list":
-			q := db.NewQuery(models.NoteKind)
+			q := c.DB.NewQuery(models.NoteKind)
 			q.Select(data.AttrMap{
 				"owner_id": c.Config.UserID,
 			})
@@ -107,7 +100,7 @@ func (c *NoteCommand) Run(args []string) int {
 			switch t {
 			case "D":
 
-				err = db.Delete(notes[i])
+				err = c.DB.Delete(notes[i])
 				if err != nil {
 					c.Ui.Error("Error deleting the note")
 					return -1
@@ -121,7 +114,7 @@ func (c *NoteCommand) Run(args []string) int {
 
 				notes[i].Text = text
 				notes[i].UpdatedAt = time.Now()
-				err = db.Save(notes[i])
+				err = c.DB.Save(notes[i])
 				if err != nil {
 					c.Ui.Error(fmt.Sprintf("Error saving record: %s", err))
 					return -1
