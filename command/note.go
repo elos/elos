@@ -98,6 +98,8 @@ func (c *NoteCommand) Run(args []string) int {
 			}
 
 			switch t {
+			case "d":
+				fallthrough
 			case "D":
 
 				err = c.DB.Delete(notes[i])
@@ -105,6 +107,8 @@ func (c *NoteCommand) Run(args []string) int {
 					c.Ui.Error("Error deleting the note")
 					return -1
 				}
+			case "e":
+				fallthrough
 			case "E":
 				c.Ui.Output(fmt.Sprintf("Current text is: %s", notes[i].Text))
 				text, err := c.Ui.Ask("What would you like instead?:")
@@ -127,5 +131,5 @@ func (c *NoteCommand) Run(args []string) int {
 }
 
 func (c *NoteCommand) Synopsis() string {
-	return "note synopsis"
+	return "Note takeing utilities"
 }

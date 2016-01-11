@@ -52,6 +52,13 @@ func init() {
 				Config: Configuration,
 			}, nil
 		},
+		"cal": func() (cli.Command, error) {
+			return &command.CalCommand{
+				UI:     UI,
+				Config: Configuration,
+				DB:     db,
+			}, databaseError
+		},
 		"conf": func() (cli.Command, error) {
 			return &command.ConfCommand{
 				Ui:     UI,

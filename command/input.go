@@ -30,6 +30,16 @@ func boolInput(ui cli.Ui, text string) (b bool, err error) {
 			return
 		}
 
+		if input == "yes" {
+			b = true
+			return
+		}
+
+		if input == "no" {
+			b = false
+			return
+		}
+
 		b, err = strconv.ParseBool(input)
 
 		if err != nil {
@@ -72,6 +82,34 @@ Valid integer expressions include: 1, 12, -300 etc.
 	}
 }
 
+func timeInput(ui cli.Ui, text string) (t time.Time, err error) {
+	var hour, min int
+	var useNow bool
+
+	ui.Output(text)
+	useNow, err = yesNo(ui, "You must input a time, would you like to use the current time?")
+	if err != nil {
+		return
+	}
+
+	if useNow {
+		t = time.Now()
+		return
+	}
+
+	hour, err = intInput(ui, "Hour [e.g., 13]")
+	if err != nil {
+		return
+	}
+	min, err = intInput(ui, "Minute [e.g., 59]")
+	if err != nil {
+		return
+	}
+
+	t, err = time.Date(0, 0, 0, hour, min, 0, 0, time.Local), nil
+	return
+}
+
 func dateInput(ui cli.Ui, text string) (t time.Time, err error) {
 	var year, month, day, hour, min int
 	var useNow bool
@@ -104,7 +142,7 @@ func dateInput(ui cli.Ui, text string) (t time.Time, err error) {
 	if err != nil {
 		return
 	}
-	hour, err = intInput(ui, "Minute [e.g., 59]")
+	min, err = intInput(ui, "Minute [e.g., 59]")
 	if err != nil {
 		return
 	}
