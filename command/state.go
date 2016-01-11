@@ -10,8 +10,11 @@ const ConfigFileName = "elosconfig.json"
 
 // The struct representing the state needed by the cli
 type Config struct {
-	Path string `json:"-"`
-	Host string
+	Path                                string `json:"-"`
+	Host                                string
+	DB                                  string
+	PublicCredential, PrivateCredential string
+	UserID                              string
 }
 
 // Read in the current configuration

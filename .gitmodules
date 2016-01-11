@@ -1,0 +1,3 @@
+[submodule "command/definitions"]
+	path = command/definitions
+	url = https://github.com/elos/definitions

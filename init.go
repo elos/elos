@@ -19,8 +19,32 @@ func init() {
 	UI = &cli.BasicUi{Writer: os.Stdout, Reader: os.Stdin}
 
 	Commands = map[string]cli.CommandFactory{
+		"auth": func() (cli.Command, error) {
+			return &command.AuthCommand{
+				UI:     UI,
+				Config: Configuration,
+			}, nil
+		},
 		"conf": func() (cli.Command, error) {
 			return &command.ConfCommand{
+				Ui:     UI,
+				Config: Configuration,
+			}, nil
+		},
+		"data": func() (cli.Command, error) {
+			return &command.DataCommand{
+				Ui:     UI,
+				Config: Configuration,
+			}, nil
+		},
+		"init": func() (cli.Command, error) {
+			return &command.InitCommand{
+				Ui:     UI,
+				Config: Configuration,
+			}, nil
+		},
+		"note": func() (cli.Command, error) {
+			return &command.NoteCommand{
 				Ui:     UI,
 				Config: Configuration,
 			}, nil
