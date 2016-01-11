@@ -84,6 +84,13 @@ func init() {
 				DB:     db,
 			}, databaseError
 		},
+		"todo": func() (cli.Command, error) {
+			return &command.TodoCommand{
+				UI:     UI,
+				Config: Configuration,
+				DB:     db,
+			}, databaseError
+		},
 	}
 
 }
