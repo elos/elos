@@ -59,6 +59,12 @@ func (c *TodoCommand) init() int {
 		return failure
 	}
 
+	// ensure configuration
+	if c.Config == nil {
+		c.errorf("initialization: no configuration")
+		return failure
+	}
+
 	// ensure that we have a user id
 	if c.Config.UserID == "" {
 		c.errorf("initialization: no user id")
@@ -153,27 +159,27 @@ func (c *TodoCommand) Run(args []string) int {
 	switch len(args) {
 	case 1:
 		switch args[0] {
-		case "n":
-		case "new":
-			return c.runNew()
 		case "c":
 		case "complete":
 			return c.runComplete()
+		case "d":
+		case "delete":
+			c.runDelete()
+		case "e":
+		case "edit":
+			c.runEdit()
+		case "l":
+		case "list":
+			c.runList()
+		case "n":
+		case "new":
+			return c.runNew()
 		case "sta":
 		case "start":
 			c.runStart()
 		case "sto":
 		case "stop":
 			c.runStop()
-		case "e":
-		case "edit":
-			c.runEdit()
-		case "d":
-		case "delete":
-			c.runDelete()
-		case "l":
-		case "list":
-			c.runList()
 		case "su":
 		case "suggest":
 			c.runSuggest()
