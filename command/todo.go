@@ -218,6 +218,8 @@ func (c *TodoCommand) runComplete() int {
 	// remove the tasks from the list becuase it is now complete
 	c.removeTask(index)
 
+	c.UI.Info(fmt.Sprintf("Completed '%s'", task.Name))
+
 	return success
 }
 
@@ -239,6 +241,8 @@ func (c *TodoCommand) runDelete() int {
 	}
 
 	c.removeTask(index)
+
+	c.UI.Info(fmt.Sprintf("Deleted '%s'", task.Name))
 
 	return success
 }
@@ -289,6 +293,8 @@ func (c *TodoCommand) runStart() int {
 		c.errorf("(subcommand start) Error: %s", err)
 		return failure
 	}
+
+	c.UI.Info(fmt.Sprintf("Started '%s'", task.Name))
 
 	return success
 }
