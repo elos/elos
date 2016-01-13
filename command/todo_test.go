@@ -243,8 +243,6 @@ func TestTodoDelete(t *testing.T) {
 
 // TestTodoEdit tests the `edit` subcommand
 func TestTodoEdit(t *testing.T) {
-	t.Skip() // TODO: don't skip edit (after implemented)
-
 	ui, db, user, c := newMockTodoCommand(t)
 
 	// load a task into the db
@@ -255,10 +253,15 @@ func TestTodoEdit(t *testing.T) {
 	}
 
 	// load input
-	ui.InputReader = bytes.NewBuffer([]byte("0\nname\nnew name"))
+	input := strings.Join([]string{
+		"0",
+		"name",
+		"newname",
+	}, "\n")
+	ui.InputReader = bytes.NewBufferString(input)
 
-	t.Log("running: `elos todo edit` with input '0'")
-	code := c.Run([]string{"start"})
+	t.Log("running: `elos todo edit`")
+	code := c.Run([]string{"edit"})
 	t.Log("command 'edit' terminated")
 
 	errput := ui.ErrorWriter.String()
@@ -293,8 +296,8 @@ func TestTodoEdit(t *testing.T) {
 
 	t.Logf("Here's the task:\n%+v", task)
 
-	if task.Name != "new name" {
-		t.Fatalf("Expected the task's name to have changed to 'new name'")
+	if task.Name != "newname" {
+		t.Fatalf("Expected the task's name to have changed to 'newname'")
 	}
 }
 
@@ -320,6 +323,7 @@ func TestTodoList(t *testing.T) {
 	t.Log("running: `elos todo list`")
 	code := c.Run([]string{"list"})
 	t.Log("command 'start' terminated")
+
 	errput := ui.ErrorWriter.String()
 	output := ui.OutputWriter.String()
 	t.Logf("Error output:\n %s", errput)
