@@ -10,6 +10,7 @@ import (
 	"github.com/mitchellh/cli"
 )
 
+// exit statuses
 const (
 	success = 0
 	failure = 1
@@ -152,7 +153,7 @@ Subcommands:
 // interface.
 func (c *TodoCommand) Run(args []string) int {
 	// fully initialize the command, and bail if not a success
-	if i := c.init(); i != 0 {
+	if i := c.init(); i != success {
 		return i
 	}
 
@@ -189,7 +190,8 @@ func (c *TodoCommand) Run(args []string) int {
 	default:
 		c.UI.Output(c.Help())
 	}
-	return 0
+
+	return success
 }
 
 // runComplete executes the "elos todo complete" command.
