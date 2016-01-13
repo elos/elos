@@ -63,7 +63,7 @@ func (c *NoteCommand) Run(args []string) int {
 
 			c.Ui.Output("Noted")
 		case "list":
-			q := c.DB.NewQuery(models.NoteKind)
+			q := c.DB.Query(models.NoteKind)
 			q.Select(data.AttrMap{
 				"owner_id": c.Config.UserID,
 			})

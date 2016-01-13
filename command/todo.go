@@ -144,7 +144,7 @@ func (c *TodoCommand) init() int {
 		return failure
 	}
 
-	taskQuery := c.DB.NewQuery(models.TaskKind)
+	taskQuery := c.DB.Query(models.TaskKind)
 
 	// only retrieve _incomplete_ tasks
 	taskQuery.Select(data.AttrMap{
