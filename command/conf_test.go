@@ -35,7 +35,7 @@ func TestHostChange(t *testing.T) {
 
 	ui.InputReader = bytes.NewBufferString(newHost + "\n")
 
-	c.Run([]string{"host"})
+	c.Run([]string{"host", "edit"})
 
 	writtenConf, err := command.ParseConfigFile(conf.Path)
 	if err != nil {
