@@ -41,77 +41,6 @@ type TodoCommand struct {
 	tasks []*models.Task
 }
 
-// init performs some verification that the TodoCommand object
-// is valid (has a non-null database & UI and a user id).
-//
-// It loads all of the UserID's tasks into the tasks field of the
-// TodoCommand object.
-//
-// A 0 return value indicates success, a 1 indiciates failure. The
-// init command handles appropriate error printing the the UI.
-func (c *TodoCommand) init() int {
-	// ensure that we have a interface
-	if c.UI == nil {
-		return failure // we c.errorf because the user interface isn't defined
-	}
-
-	// ensure that we have a database
-	if c.DB == nil {
-		c.errorf("initialization: no database")
-		return failure
-	}
-
-	// ensure that we have a user id
-	if c.UserID == "" {
-		c.errorf("initialization: no user id")
-		return failure
-	}
-
-	taskQuery := c.DB.NewQuery(models.TaskKind)
-
-	// only retrieve _incomplete_ tasks
-	taskQuery.Select(data.AttrMap{
-		"owner_id": c.UserID,
-		"complete": false,
-	})
-
-	iter, err := taskQuery.Execute()
-	if err != nil {
-		c.errorf("data retrieval: querying tasks")
-		return failure
-	}
-
-	t := models.NewTask()
-	tasks := make([]*models.Task, 0)
-	for iter.Next(t) {
-		tasks = append(tasks, t)
-		t = models.NewTask()
-	}
-
-	if err := iter.Close(); err != nil {
-		c.errorf("data retrieval: querying tasks")
-		return 1
-	}
-
-	c.tasks = tasks
-
-	return success
-}
-
-// errorf is a IO function which performs the equivalent of log.Errorf
-// in the standard lib, except using the cli.Ui interface with which
-// the TodoCommand was provided.
-func (c *TodoCommand) errorf(s string, values ...interface{}) {
-	c.UI.Error("[elos todo] " + fmt.Sprintf(s, values...))
-}
-
-// removeTask removes the task at the given index.
-// You may use this for removing a task from memory after
-// it has been completed, or deleted.
-func (c *TodoCommand) removeTask(index int) {
-	c.tasks = append(c.tasks[index:], c.tasks[index+1:]...)
-}
-
 // Synopsis is a one-line, short summary of the todo command.
 // Should remain less than 50 characters, ideally.
 func (c *TodoCommand) Synopsis() string {
@@ -187,6 +116,77 @@ func (c *TodoCommand) Run(args []string) int {
 	}
 
 	return success
+}
+
+// init performs some verification that the TodoCommand object
+// is valid (has a non-null database & UI and a user id).
+//
+// It loads all of the UserID's tasks into the tasks field of the
+// TodoCommand object.
+//
+// A 0 return value indicates success, a 1 indiciates failure. The
+// init command handles appropriate error printing the the UI.
+func (c *TodoCommand) init() int {
+	// ensure that we have a interface
+	if c.UI == nil {
+		return failure // we c.errorf because the user interface isn't defined
+	}
+
+	// ensure that we have a database
+	if c.DB == nil {
+		c.errorf("initialization: no database")
+		return failure
+	}
+
+	// ensure that we have a user id
+	if c.UserID == "" {
+		c.errorf("initialization: no user id")
+		return failure
+	}
+
+	taskQuery := c.DB.NewQuery(models.TaskKind)
+
+	// only retrieve _incomplete_ tasks
+	taskQuery.Select(data.AttrMap{
+		"owner_id": c.UserID,
+		"complete": false,
+	})
+
+	iter, err := taskQuery.Execute()
+	if err != nil {
+		c.errorf("data retrieval: querying tasks")
+		return failure
+	}
+
+	t := models.NewTask()
+	tasks := make([]*models.Task, 0)
+	for iter.Next(t) {
+		tasks = append(tasks, t)
+		t = models.NewTask()
+	}
+
+	if err := iter.Close(); err != nil {
+		c.errorf("data retrieval: querying tasks")
+		return 1
+	}
+
+	c.tasks = tasks
+
+	return success
+}
+
+// errorf is a IO function which performs the equivalent of log.Errorf
+// in the standard lib, except using the cli.Ui interface with which
+// the TodoCommand was provided.
+func (c *TodoCommand) errorf(s string, values ...interface{}) {
+	c.UI.Error("[elos todo] " + fmt.Sprintf(s, values...))
+}
+
+// removeTask removes the task at the given index.
+// You may use this for removing a task from memory after
+// it has been completed, or deleted.
+func (c *TodoCommand) removeTask(index int) {
+	c.tasks = append(c.tasks[index:], c.tasks[index+1:]...)
 }
 
 // runComplete executes the "elos todo complete" command.
