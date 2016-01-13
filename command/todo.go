@@ -25,14 +25,14 @@ type TodoCommand struct {
 	// UI is used to communicate (IO) with user
 	UI cli.Ui
 
-	// Config points to this CLI's elos configuration. For
-	// the todo command must be specified.
-	*Config
+	// UserID is the id of the user we are acting on behalf
+	// it must be specified
+	UserID string
 
 	// DB is the elos database we interface with.
 	data.DB
 
-	// The tasks of the user given by Config.UserID
+	// The tasks of the user given by c.UserID
 	//
 	// During the lifecycle of the command, and assuming
 	// the user is only accessing the elos system through
@@ -42,7 +42,7 @@ type TodoCommand struct {
 }
 
 // init performs some verification that the TodoCommand object
-// is valid (has a non-null database & UI and a configured user id).
+// is valid (has a non-null database & UI and a user id).
 //
 // It loads all of the UserID's tasks into the tasks field of the
 // TodoCommand object.
@@ -61,14 +61,8 @@ func (c *TodoCommand) init() int {
 		return failure
 	}
 
-	// ensure configuration
-	if c.Config == nil {
-		c.errorf("initialization: no configuration")
-		return failure
-	}
-
 	// ensure that we have a user id
-	if c.Config.UserID == "" {
+	if c.UserID == "" {
 		c.errorf("initialization: no user id")
 		return failure
 	}
@@ -77,7 +71,7 @@ func (c *TodoCommand) init() int {
 
 	// only retrieve _incomplete_ tasks
 	taskQuery.Select(data.AttrMap{
-		"owner_id": c.Config.UserID,
+		"owner_id": c.UserID,
 		"complete": false,
 	})
 
@@ -441,7 +435,7 @@ func (c *TodoCommand) promptNewTask() (task *models.Task, err error) {
 	task = models.NewTask()
 	task.SetID(c.DB.NewID())
 	task.CreatedAt = time.Now()
-	task.OwnerId = c.Config.UserID
+	task.OwnerId = c.UserID
 
 	if task.Name, err = stringInput(c.UI, "Name:"); err != nil {
 		return

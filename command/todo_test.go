@@ -43,11 +43,9 @@ func newMockTodoCommand(t *testing.T) (*cli.MockUi, data.DB, *models.User, *Todo
 	user := newTestUser(t, db)
 
 	return ui, db, user, &TodoCommand{
-		UI: ui,
-		Config: &Config{
-			UserID: user.ID().String(),
-		},
-		DB: db,
+		UI:     ui,
+		UserID: user.ID().String(),
+		DB:     db,
 	}
 }
 
@@ -75,51 +73,31 @@ func TestTodoInadequateInitialization(t *testing.T) {
 	// memory db
 	db := mem.NewDB()
 
-	// config without a UserID
-	emptyConf := &Config{}
-
 	// a new user, stored in db
 	user := newTestUser(t, db)
 
-	// a configuration with UserID appropriately set
-	userConf := &Config{
-		UserID: user.ID().String(),
-	}
-
 	// note: this TodoCommand is missing a cli.Ui
 	missingUI := &TodoCommand{
-		Config: userConf,
+		UserID: user.ID().String(),
 		DB:     db,
-	}
-
-	// note: this TodoCommand is missing a *Config
-	missingConf := &TodoCommand{
-		UI: ui,
-		DB: db,
 	}
 
 	// note: this TodoCommand has *Config that is empty
 	// esp. important that there is no UserID defined
 	missingUserID := &TodoCommand{
-		UI:     ui,
-		Config: emptyConf,
-		DB:     db,
+		UI: ui,
+		DB: db,
 	}
 
 	// note: this TodoCommand lacks a database (DB field)
 	missingDB := &TodoCommand{
 		UI:     ui,
-		Config: userConf,
+		UserID: user.ID().String(),
 	}
 
 	// expect missing a ui to fail
 	if o := missingUI.Run([]string{"new"}); o != failure {
 		t.Fatal("TodoCommand without ui should fail on run")
-	}
-
-	// expect missing a config to fail
-	if o := missingConf.Run([]string{"new"}); o != failure {
-		t.Fatal("TodoCommand without conf should fail on run")
 	}
 
 	// expect missing a user id to fail
