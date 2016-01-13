@@ -2,6 +2,7 @@ package command
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/elos/data"
@@ -16,7 +17,13 @@ type NoteCommand struct {
 }
 
 func (c *NoteCommand) Help() string {
-	return "note help"
+	helpText := `
+Usage:
+	elos note <subcommand>
+
+Available subcommands:
+`
+	return strings.TrimSpace(helpText)
 }
 
 func (c *NoteCommand) Run(args []string) int {

@@ -87,7 +87,7 @@ func init() {
 		"todo": func() (cli.Command, error) {
 			return &command.TodoCommand{
 				UI:     UI,
-				Config: Configuration,
+				UserID: Configuration.UserID,
 				DB:     db,
 			}, databaseError
 		},
