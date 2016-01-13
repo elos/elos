@@ -1,6 +1,7 @@
 package command
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -249,7 +250,48 @@ func (c *TodoCommand) runDelete() int {
 
 // runEdit runs the 'edit' subcommand, which is currently not implemented
 func (c *TodoCommand) runEdit() int {
-	c.UI.Warn("the edit subcommand is not yet implemented")
+	task, index := c.promptSelectTask()
+	if index < 0 {
+		return failure
+	}
+
+	bytes, err := json.MarshalIndent(task, "", "	")
+	if err != nil {
+		return failure
+	}
+	c.UI.Output(string(bytes))
+
+	var attributeToEdit string
+	attributeToEdit, err = stringInput(c.UI, "Which attribute?")
+
+	switch attributeToEdit {
+	case "complete":
+		task.Complete, err = boolInput(c.UI, "Completed?")
+	case "created_at":
+		task.CreatedAt, err = dateInput(c.UI, "CreatedAt?")
+	case "deadline":
+		task.Deadline, err = dateInput(c.UI, "New deadline?")
+	case "deleted_at":
+		task.DeletedAt, err = dateInput(c.UI, "DeletedAt?")
+	case "name":
+		task.Name, err = stringInput(c.UI, "New name?")
+	case "person_id":
+		task.PersonId, err = stringInput(c.UI, "New id?")
+	default:
+		c.UI.Warn("That attribute is not recognized/supported")
+		return success
+	}
+
+	if err != nil {
+		c.errorf("(subcommand edit) Error %s", err)
+		return failure
+	}
+
+	if err = c.DB.Save(task); err != nil {
+		c.errorf("(subcommand edit) Error: %s", err)
+		return failure
+	}
+
 	return success
 }
 
