@@ -102,7 +102,7 @@ func (c *DataCommand) Run(args []string) int {
 
 		m := models.ModelFor(data.Kind(kind))
 		log.Printf("%+v", attrs)
-		transfer.Unmarshal(attrs, m)
+		transfer.UnmarshalAttrs(attrs, m)
 
 		c.Ui.Info("Saving record...")
 		if m.ID().String() == "" {

@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/user"
 	"path"
 
 	"github.com/elos/data"
 	"github.com/elos/elos/command"
+	"github.com/elos/gaia"
 	"github.com/elos/models"
 	"github.com/mitchellh/cli"
 )
@@ -39,10 +41,20 @@ func init() {
 
 	var db data.DB
 	var databaseError error
-	if Configuration.DB != "" {
-		db, databaseError = models.MongoDB(Configuration.DB)
+
+	if Configuration.DirectDB {
+		if Configuration.DB != "" {
+			db, databaseError = models.MongoDB(Configuration.DB)
+		} else {
+			databaseError = fmt.Errorf("No database listed")
+		}
 	} else {
-		databaseError = fmt.Errorf("No databse listed")
+		db = &gaia.DB{
+			URL:      Configuration.Host,
+			Username: Configuration.PublicCredential,
+			Password: Configuration.PrivateCredential,
+			Client:   http.DefaultClient,
+		}
 	}
 
 	Commands = map[string]cli.CommandFactory{
