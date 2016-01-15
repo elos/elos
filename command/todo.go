@@ -18,15 +18,16 @@ const (
 )
 
 // TodoCommand contains the state necessary to implement the
-// elos todo command set.
+// 'elos todo' command set.
 //
 // It  implements the cli.Command interface
 type TodoCommand struct {
-	// UI is used to communicate (IO) with user
+	// UI is used to communicate (for IO) with user
+	// It must be non-null
 	UI cli.Ui
 
-	// UserID is the id of the user we are acting on behalf
-	// it must be specified
+	// UserID is the id of the user we are acting on behalf of.
+	// It must be specified.
 	UserID string
 
 	// DB is the elos database we interface with.
@@ -41,15 +42,15 @@ type TodoCommand struct {
 	tasks []*models.Task
 }
 
-// Synopsis is a one-line, short summary of the todo command.
-// Should remain less than 50 characters, ideally.
+// Synopsis is a one-line, short summary of the 'todo' command.
+// It is guaranteed to be at most 50 characters.
 func (c *TodoCommand) Synopsis() string {
 	return "Utilities for managing elos tasks"
 }
 
 // Help is the long-form help text that includes command-line
 // usage. It includes the subcommands and, possibly a complete
-// list of flags the todo command accepts.
+// list of flags the 'todo' command accepts.
 func (c *TodoCommand) Help() string {
 	helpText := `
 Usage:
@@ -68,14 +69,19 @@ Subcommands:
 	return strings.TrimSpace(helpText)
 }
 
-// Run runs the todo command with the given CLI instance and
-// command-line arguments. It returns an exist status when
-// it is finished: 0 indicates success, anything else indicates
-// an error has occurred.
+// Run runs the 'todo' command with the given command-line arguments.
+// It returns an exit status when it finishes.  0 indicates a sucess,
+// any othe integer indicates a failure.
 //
 // All user interaction is handled by the command using the UI
 // interface.
 func (c *TodoCommand) Run(args []string) int {
+	// short circuit to avoid loading tasks
+	if len(args) == 0 {
+		c.UI.Output(c.Help())
+		return success
+	}
+
 	// fully initialize the command, and bail if not a success
 	if i := c.init(); i != success {
 		return i
@@ -179,7 +185,7 @@ func (c *TodoCommand) init() int {
 // in the standard lib, except using the cli.Ui interface with which
 // the TodoCommand was provided.
 func (c *TodoCommand) errorf(s string, values ...interface{}) {
-	c.UI.Error("[elos todo] " + fmt.Sprintf(s, values...))
+	c.UI.Error("[elos todo] Error: " + fmt.Sprintf(s, values...))
 }
 
 // removeTask removes the task at the given index.
