@@ -53,7 +53,7 @@ func init() {
 			URL:      Configuration.Host,
 			Username: Configuration.PublicCredential,
 			Password: Configuration.PrivateCredential,
-			Client:   http.DefaultClient,
+			Client:   new(http.Client),
 		}
 	}
 
@@ -67,7 +67,7 @@ func init() {
 		"cal": func() (cli.Command, error) {
 			return &command.CalCommand{
 				UI:     UI,
-				Config: Configuration,
+				UserID: Configuration.UserID,
 				DB:     db,
 			}, databaseError
 		},

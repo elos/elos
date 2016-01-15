@@ -2,6 +2,7 @@ package command
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -11,178 +12,206 @@ import (
 	"github.com/mitchellh/cli"
 )
 
+// CalCommand contains the state necessary to implement the
+// 'elos cal' command set
 type CalCommand struct {
+	// UI is used to communicate (for IO) with the user
+	// It must be non-null
 	UI cli.Ui
-	*Config
+
+	// UserID is the id of the user we are acting on behalf of.
+	// It must be specified
+	UserID string
+
+	// DB is the elos database we interface with.
 	data.DB
+
+	// cal is the user's current elos calendar
+	cal *models.Calendar
 }
 
+// Synopsis is a one-line, short summary of the 'cal' command.
+// It is guaranteed to be at most 50 characters.
+func (c *CalCommand) Synopsis() string {
+	return "Utilities for managing the elos calendrical system"
+}
+
+// Help is the long-form help text that includes command-line
+// usage. It includes the subcommands and, possibly, a complete
+// list of flags the 'cal' command accepts.
 func (c *CalCommand) Help() string {
 	helpText := `
+Usage:
+	elos cal <subcommand>
+
 Subcommands:
-	* today
-	* scheduling
-		* base
-		* weekday
-		* yearday
+	today	list fixtures for today
+	scheduling {base | weekday | yearday}	modify schedules
 `
 	return strings.TrimSpace(helpText)
 }
 
+// Run runs the 'cal' command with the given command-line arguments.
+// It returns an exit status when it finishes. 0 indicates a success,
+// any other integer indicates a failure.
+//
+// All user interaction is handled by the command using the UI
+// interface.
 func (c *CalCommand) Run(args []string) int {
-	if c.Config.UserID == "" {
-		c.UI.Error("No user id")
-		return 1
+	// shortcircuit before hitting the network
+	if len(args) == 0 {
+		c.UI.Output(c.Help())
+		return success
 	}
 
-	if c.DB == nil {
-		c.UI.Error("No database")
-		return 1
+	// initialize
+	if i := c.init(); i != success {
+		return i
 	}
 
-	cal := models.NewCalendar()
-	if err := c.DB.PopulateByField("owner_id", c.Config.UserID, cal); err != nil {
-		if err == data.ErrNotFound {
-			b, err := yesNo(c.UI, "It appears you do not have a calendar, would you like to create one?")
-			if err != nil {
+	switch args[0] {
+	case "today":
+		return c.runToday(args)
+	case "scheduling":
+		if len(args) == 1 {
+			c.UI.Output("Usage: elos cal scheduling { base | weekday | yearday }")
+			return success
+		}
+		switch args[1] {
+		case "base":
+			return c.runSchedulingBase(args)
+		case "weekday":
+			return c.runSchedulingWeekday(args)
+		case "yearday":
+			c.UI.Output("elos cal scheduling yearday not implemented yet")
+		}
+	}
+
+	return success
+}
+
+func (c *CalCommand) runToday(args []string) int {
+	fixtures, err := c.cal.FixturesForDate(time.Now(), c.DB)
+	if err != nil {
+		c.UI.Error(err.Error())
+		return failure
+	}
+
+	printFixtures(c.UI, fixtures)
+	return success
+}
+
+func (c *CalCommand) newSchedule(name string) *models.Schedule {
+	base := models.NewSchedule()
+	base.SetID(c.DB.NewID())
+	base.CreatedAt = time.Now()
+	base.Name = name
+	base.EndTime = base.StartTime.Add(24 * time.Hour)
+	log.Print(base.EndTime.Year())
+	base.OwnerId = c.UserID
+	base.UpdatedAt = time.Now()
+	return base
+}
+
+func (c *CalCommand) runSchedulingBase(args []string) int {
+	base, err := c.cal.BaseSchedule(c.DB)
+	if err != nil {
+		if err == models.ErrEmptyLink {
+			c.UI.Output("It appears you don't have a base schedule, creating one for you now")
+			base := c.newSchedule("Base Schedule")
+
+			if err := c.DB.Save(base); err != nil {
 				c.UI.Error(err.Error())
-				return 1
+				return failure
 			}
 
-			if b {
-				cal = models.NewCalendar()
-				cal.SetID(c.DB.NewID())
-				cal.CreatedAt = time.Now()
-				cal.Name = "Main"
-				cal.OwnerId = c.Config.UserID
-				cal.UpdatedAt = time.Now()
-
-				if err := c.DB.Save(cal); err != nil {
-					c.UI.Error(fmt.Sprintf("Error creating calendar: %s", err))
-					return 1
-				}
+			c.cal.SetBaseSchedule(base)
+			if err := c.DB.Save(c.cal); err != nil {
+				c.UI.Error(err.Error())
+				return failure
 			}
 		} else {
-			c.UI.Error(fmt.Sprintf("Error looking for calendar: %s", err))
+			c.UI.Error(err.Error())
+			return failure
+		}
+	}
+
+	fixtures, err := base.Fixtures(c.DB)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Error retrieving the fixtures of your base schedule %s", err))
+		return failure
+	}
+
+	c.UI.Output("Base Schedule Fixtures:")
+	printFixtures(c.UI, fixtures)
+	return success
+}
+
+func (c *CalCommand) runSchedulingWeekday(args []string) int {
+	i := -1
+	var err error
+	for !models.ValidWeekday(i) {
+		i, err = intInput(c.UI, "For which weekday?")
+
+		if err != nil {
+			c.UI.Error(fmt.Sprintf("Error with input: %s", err))
+			return failure
+		}
+	}
+
+	scheduleID, ok := c.cal.WeekdaySchedules[string(i)]
+	schedule := models.NewSchedule()
+	if ok {
+		schedule.Id = scheduleID
+		if err := c.DB.PopulateByID(schedule); err != nil {
+			c.UI.Error(fmt.Sprintf("Error populating weekday schedule: %s", err))
+			return 1
+		}
+	} else {
+		c.UI.Output("Looks like you don't have a schedule for that day, creating one now...")
+		weekday := c.newSchedule("Weekday Schedule")
+
+		if err := c.DB.Save(weekday); err != nil {
+			c.UI.Error(err.Error())
+			return failure
+		}
+
+		c.cal.WeekdaySchedules[string(i)] = weekday.Id
+
+		if err = c.DB.Save(c.cal); err != nil {
+			c.UI.Error(err.Error())
+			return failure
+		}
+
+		schedule = weekday
+	}
+
+	fixtures, err := schedule.Fixtures(c.DB)
+	if err != nil {
+		c.UI.Error(fmt.Sprintf("Error retrieving the fixtures of your weekday schedule %s", err))
+		return 1
+	}
+	c.UI.Output(fmt.Sprintf("%s Schedule Fixtures:", time.Weekday(i)))
+	printFixtures(c.UI, fixtures)
+
+	b, err := yesNo(c.UI, "Would you like to add a fixture now?")
+	if err != nil {
+		return 1
+	}
+
+	if b {
+		f, err := createFixture(c.UI, c.UserID, c.DB)
+		if err != nil {
+			return 1
+		}
+
+		schedule.IncludeFixture(f)
+		err = c.DB.Save(schedule)
+		if err != nil {
 			return 1
 		}
 	}
-
-	switch len(args) {
-	case 0:
-		c.UI.Output(fmt.Sprintf("Today is %s", time.Now()))
-		return 0
-	case 1:
-		switch args[0] {
-		case "today":
-
-			schedules := cal.SchedulesForDate(time.Now(), c.DB)
-			fixtures, err := models.MergedFixtures(c.DB, schedules...)
-			if err != nil {
-				c.UI.Error(err.Error())
-				return 1
-			}
-			fixtures = models.RelevantFixtures(time.Now(), fixtures)
-		case "scheduling":
-			c.UI.Output("Usage: elos cal scheduling { base | weekday | yearday }")
-		}
-	case 2:
-
-		switch args[0] {
-		case "scheduling":
-			switch args[1] {
-			case "base":
-				base, err := cal.BaseScheduleOrCreate(c.DB)
-				if err != nil {
-					c.UI.Error(fmt.Sprintf("Error retrieving base schedule: %s", err))
-					return 1
-				}
-
-				fixtures, err := base.Fixtures(c.DB)
-				if err != nil {
-					c.UI.Error(fmt.Sprintf("Error retrieving the fixtures of your base schedule %s", err))
-					return 1
-				}
-				c.UI.Output("Base Schedule Fixtures:")
-				printFixtures(c.UI, fixtures)
-			case "weekday":
-				i, err := intInput(c.UI, "For which weekday?")
-				if err != nil {
-					c.UI.Error(fmt.Sprintf("Error with input: %s", err))
-					return 1
-				}
-
-				scheduleID, ok := cal.WeekdaySchedules[string(i)]
-				schedule := models.NewSchedule()
-				if ok {
-					schedule.Id = scheduleID
-					if err := c.DB.PopulateByID(schedule); err != nil {
-						c.UI.Error(fmt.Sprintf("Error populating weekday schedule: %s", err))
-						return 1
-					}
-				} else {
-					b, err := yesNo(c.UI, "Looks like you don't have a schedule for that day, would you like to create one?")
-					if err != nil {
-						c.UI.Error(fmt.Sprintf("Error asking question: %s", err))
-						return 1
-					}
-
-					if !b {
-						break
-					}
-
-					schedule.SetID(c.DB.NewID())
-					schedule.CreatedAt = time.Now()
-					schedule.OwnerId = cal.OwnerId
-					schedule.UpdatedAt = time.Now()
-
-					err = c.DB.Save(schedule)
-					if err != nil {
-						c.UI.Error(err.Error())
-						return 1
-					}
-
-					cal.WeekdaySchedules[string(i)] = schedule.Id
-
-					err = c.DB.Save(cal)
-					if err != nil {
-						c.UI.Error(err.Error())
-						return 1
-					}
-				}
-				fixtures, err := schedule.Fixtures(c.DB)
-				if err != nil {
-					c.UI.Error(fmt.Sprintf("Error retrieving the fixtures of your base schedule %s", err))
-					return 1
-				}
-				c.UI.Output(fmt.Sprintf("%s Schedule Fixtures:", time.Weekday(i)))
-				printFixtures(c.UI, fixtures)
-
-				b, err := yesNo(c.UI, "Would you like to add a fixture now?")
-				if err != nil {
-					return 1
-				}
-
-				if b {
-					f, err := createFixture(c.UI, c.Config.UserID, c.DB)
-					if err != nil {
-						return 1
-					}
-
-					schedule.IncludeFixture(f)
-					err = c.DB.Save(schedule)
-					if err != nil {
-						return 1
-					}
-				}
-			case "yearday":
-			default:
-				c.UI.Output("Usage: elos cal scheduling { base | weekday | yearday }")
-			}
-		}
-	}
-
-	return 0
+	return success
 }
 
 type byStartTime []*models.Fixture
@@ -255,6 +284,68 @@ func createFixture(ui cli.Ui, ownerID string, db data.DB) (fixture *models.Fixtu
 	return
 }
 
-func (c *CalCommand) Synopsis() string {
-	return "Calendar utilities"
+func (c *CalCommand) init() int {
+	if c.UI == nil {
+		c.UI.Error("No UI")
+		return failure
+	}
+
+	if c.UserID == "" {
+		c.UI.Error("No user id")
+		return failure
+	}
+
+	if c.DB == nil {
+		c.UI.Error("No database")
+		return failure
+	}
+
+	c.cal = models.NewCalendar()
+
+	if err := c.DB.PopulateByField("owner_id", c.UserID, c.cal); err != nil {
+		if err == data.ErrNotFound {
+			createOneNow, err := yesNo(c.UI, "It appears you do not have a calendar, would you like to create one?")
+			if err != nil {
+				c.UI.Error(err.Error())
+				return failure
+			}
+
+			if createOneNow {
+				cal, err := newCalendar(c.DB, c.UserID)
+				if err != nil {
+					c.UI.Error(err.Error())
+					return failure
+				}
+				c.cal = cal
+			} else {
+				c.UI.Output("Ok, you will have to create one eventually in order to use the 'elos cal' commands")
+				return failure
+			}
+		} else {
+			c.UI.Error(fmt.Sprintf("Error looking for calendar: %s", err))
+			return failure
+		}
+	}
+
+	if c.cal.WeekdaySchedules == nil {
+		c.cal.WeekdaySchedules = make(map[string]string)
+	}
+
+	if c.cal.YeardaySchedules == nil {
+		c.cal.YeardaySchedules = make(map[string]string)
+	}
+
+	return success
+}
+
+func newCalendar(db data.DB, userID string) (*models.Calendar, error) {
+	cal := models.NewCalendar()
+
+	cal.SetID(db.NewID())
+	cal.CreatedAt = time.Now()
+	cal.Name = "Main"
+	cal.OwnerId = userID
+	cal.UpdatedAt = time.Now()
+
+	return cal, db.Save(cal)
 }
