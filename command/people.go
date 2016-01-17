@@ -101,12 +101,17 @@ func (c *PeopleCommand) errorf(format string, values ...interface{}) {
 	c.UI.Error(fmt.Sprintf("(elos people) Error: "+format, values...))
 }
 
+// printf calls UI.Output with the formmated string
+// always prefer printf over c.UI.Output
 func (c *PeopleCommand) printf(format string, values ...interface{}) {
 	c.UI.Output(fmt.Sprintf(format, values...))
 }
 
-// ensures we have a UI, DB and UserID
-// loads all the people
+// init performs the necessary initliazation for the *PeopleCommand
+// Notable, it ensures we have a UI, DB and UserID, so those can be treated
+// as invariants throughought the rest of the code.
+//
+// Additionally it loads this user's people list.
 func (c *PeopleCommand) init() int {
 	if c.UI == nil {
 		// can't use errorf, because the UI is not defined
@@ -147,12 +152,27 @@ func (c *PeopleCommand) init() int {
 	return success
 }
 
+// printPeopleList prints a numbered list of the people in the people slice
 func (c *PeopleCommand) printPeopleList() {
 	for i, p := range c.people {
 		c.printf("%d) %s %s", i, p.FirstName, p.LastName)
 	}
 }
 
+// promptSelectPerson prompts the user to select a person from their list
+// of people.
+//
+// Use promptNewPerson for any subcommand which acts on a person.
+// Retrieve the person:
+//		person, index := promptSelectPerson()
+//		if index < 0 {
+//			return failure
+//		}
+//
+// As you can see in the example above, a negative index indicates failure.
+//
+// NOTE: the integer here is not a status code, but rather the index of the person
+// in the command's people slice
 func (c *PeopleCommand) promptSelectPerson() (*models.Person, int) {
 	if len(c.people) == 0 {
 		c.UI.Warn("You do not have any people")
@@ -179,6 +199,14 @@ func (c *PeopleCommand) promptSelectPerson() (*models.Person, int) {
 	return c.people[indexOfCurrent], indexOfCurrent
 }
 
+// promptNewPerson provides the input prompts necessary to construct a new person.
+//
+// Use this to implement the 'new' subcommand, and for any subcommand which requires
+// creating a new user as part of it's functionality.
+//
+// It returns a person and status code. A 0 status code indicates success, any other
+// status indicates failure, and the caller should exit immediately. promptNewPerson
+// will have taken care of printing the error output.
 func (c *PeopleCommand) promptNewPerson() (*models.Person, int) {
 	p := models.NewPerson()
 	p.SetID(c.DB.NewID())
@@ -207,6 +235,16 @@ func (c *PeopleCommand) promptNewPerson() (*models.Person, int) {
 	return p, success
 }
 
+// promptNewNote prompts the user for the information necessary to create a new
+// note about the given user.
+//
+// Use this to implement the 'note' subcommand, or if a subcommand ever needs
+// to prompt the user to add a note to a person as a part of it's functionality.
+//
+// It returns the new note, which has been saved, and a status code. As always,
+// 0 indicates success, whereas any other integer indicates failure. When
+// a failure has occured the first return argument will be nil. The promptNewNote
+// function handles error message outputting itself.
 func (c *PeopleCommand) promptNewNote(p *models.Person) (*models.Note, int) {
 	n := models.NewNote()
 	n.SetID(c.DB.NewID())
@@ -237,6 +275,9 @@ func (c *PeopleCommand) promptNewNote(p *models.Person) (*models.Note, int) {
 	return n, success
 }
 
+// runDelete runs the 'delete' subcommand with the given arguments.
+//
+// The 'delete' subcommands prompts the user for a person to delete.
 func (c *PeopleCommand) runDelete(args []string) int {
 	person, index := c.promptSelectPerson()
 	if index < 0 {
@@ -260,6 +301,9 @@ func (c *PeopleCommand) runDelete(args []string) int {
 	return success
 }
 
+// runList runs the 'list' subcommand with the given arguments.
+//
+// The 'list' subcommand lists all the user's people.
 func (c *PeopleCommand) runList(args []string) int {
 	if len(c.people) == 0 {
 		c.printf("You have no people")
@@ -271,6 +315,9 @@ func (c *PeopleCommand) runList(args []string) int {
 	return success
 }
 
+// runNew runs the 'new' subcommand with the given arguments.
+//
+// The 'new' subcommand provides prompts to create a new person.
 func (c *PeopleCommand) runNew(args []string) int {
 	person, out := c.promptNewPerson()
 	if out != success {
@@ -281,6 +328,9 @@ func (c *PeopleCommand) runNew(args []string) int {
 	return success
 }
 
+// runNotes runs the 'note' subcommand with the given arguments.
+//
+// The 'note' subcommand allows you to add notes to a person.
 func (c *PeopleCommand) runNote(args []string) int {
 	person, index := c.promptSelectPerson()
 	if index < 0 {
@@ -306,6 +356,13 @@ Adding:
 	return success
 }
 
+// runStream runs the stream command with the given arguments.
+//
+// The stream command loads all the note on a particular user,
+// and allows you to scroll through them by pressing enter.
+//
+// Interestingly, the current design is that oldest notes come first
+// but perhaps this may change.
 func (c *PeopleCommand) runStream(args []string) int {
 	person, index := c.promptSelectPerson()
 	if index < 0 {
@@ -338,6 +395,9 @@ func (c *PeopleCommand) runStream(args []string) int {
 	return success
 }
 
+// byCreated is a type which satisfies the sort.Interface
+// and sorts note by the date they were created at,
+// oldest first
 type byCreatedAt []*models.Note
 
 func (b byCreatedAt) Len() int {
