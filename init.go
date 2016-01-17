@@ -83,6 +83,13 @@ func init() {
 				Config: Configuration,
 			}, nil
 		},
+		"habit": func() (cli.Command, error) {
+			return &command.HabitCommand{
+				UI:     UI,
+				UserID: Configuration.UserID,
+				DB:     db,
+			}, databaseError
+		},
 		"init": func() (cli.Command, error) {
 			return &command.InitCommand{
 				Ui:     UI,

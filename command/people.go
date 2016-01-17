@@ -16,11 +16,11 @@ import (
 //
 // It implements the cli.Command interface
 type PeopleCommand struct {
-	// UI is used to communicate (fo IO) with the user
+	// UI is used to communicate (for IO) with the user
 	// It must not be nil.
 	UI cli.Ui
 
-	// UserID is the id of theuser we are acting on behalf of.
+	// UserID is the id of the user we are acting on behalf of.
 	// It must be specified.
 	UserID string
 
@@ -44,8 +44,8 @@ Usage:
 	elos people <subcommand>
 
 Subcommands:
-	list	list all of the people
 	delete	delete a person
+	list	list all of the people
 	new	create a new person
 	note	add a note to a person
 	stream	stream notes for a person
@@ -53,7 +53,7 @@ Subcommands:
 	return strings.TrimSpace(helpText)
 }
 
-// Runs runs the 'people' command with the given command-line arguments.
+// Run runs the 'people' command with the given command-line arguments.
 // It returns an exit status when it finishes. 0 indicates a success,
 // any other integer indicates a failure.
 //
@@ -61,7 +61,7 @@ Subcommands:
 // interface
 func (c *PeopleCommand) Run(args []string) int {
 	// short circuit to avoid loading people
-	if len(args) == 0 {
+	if len(args) == 0 && c.UI != nil {
 		c.UI.Output(c.Help())
 		return success
 	}
@@ -108,7 +108,7 @@ func (c *PeopleCommand) printf(format string, values ...interface{}) {
 }
 
 // init performs the necessary initliazation for the *PeopleCommand
-// Notable, it ensures we have a UI, DB and UserID, so those can be treated
+// It ensures we have a UI, DB and UserID, so those can be treated
 // as invariants throughought the rest of the code.
 //
 // Additionally it loads this user's people list.
@@ -203,7 +203,7 @@ func (c *PeopleCommand) promptSelectPerson() (*models.Person, int) {
 // promptNewPerson provides the input prompts necessary to construct a new person.
 //
 // Use this to implement the 'new' subcommand, and for any subcommand which requires
-// creating a new user as part of it's functionality.
+// creating a new person as part of it's functionality.
 //
 // It returns a person and status code. A 0 status code indicates success, any other
 // status indicates failure, and the caller should exit immediately. promptNewPerson

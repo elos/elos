@@ -77,7 +77,7 @@ Subcommands:
 // interface.
 func (c *TodoCommand) Run(args []string) int {
 	// short circuit to avoid loading tasks
-	if len(args) == 0 {
+	if len(args) == 0 && c.UI != nil {
 		c.UI.Output(c.Help())
 		return success
 	}

@@ -20,7 +20,7 @@ func newTestPerson(t *testing.T, db data.DB, u *models.User) *models.Person {
 	person.OwnerId = u.ID().String()
 	person.UpdatedAt = time.Now()
 	if err := db.Save(person); err != nil {
-		t.Fatal("newTestPerson Error: %s", err)
+		t.Fatalf("newTestPerson Error: %s", err)
 	}
 	return person
 }
@@ -51,7 +51,7 @@ func newMockPeopleCommand(t *testing.T) (*cli.MockUi, data.DB, *models.User, *Pe
 
 // --- Tests {{{
 
-// --- Instantiation
+// --- Instantiation {{{
 
 func TestPeopleBasic(t *testing.T) {
 	_, _, _, c := newMockPeopleCommand(t)
@@ -64,7 +64,7 @@ func TestPeopleBasic(t *testing.T) {
 	}
 }
 
-func TestPeopleInadequateInitialization(t *testing.T) {
+func TestHabitInadequateInitialization(t *testing.T) {
 	// mock cli.Ui
 	ui := new(cli.MockUi)
 
