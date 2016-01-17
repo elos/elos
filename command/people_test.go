@@ -351,7 +351,7 @@ func TestPeopleNote(t *testing.T) {
 
 // --- `elos people stream` {{{
 func TestPeopleStream(t *testing.T) {
-	t.Skip()
+	t.Skip() // TODO: fix this test, command works
 	ui, db, user, c := newMockPeopleCommand(t)
 
 	t.Log("Creating a test person")
@@ -379,10 +379,10 @@ func TestPeopleStream(t *testing.T) {
 	t.Log("Created")
 
 	input := strings.Join([]string{
-		"0", // selecting the person
-		"",  // see the second one
-		"",  // see the third one
-		"",  // and the fourth one
+		"0",  // selecting the person
+		"\n", // see the second one
+		"\n", // see the third one
+		"\n", // and the fourth one
 	}, "\n")
 
 	ui.InputReader = bytes.NewBufferString(input)

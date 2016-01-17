@@ -243,7 +243,7 @@ func (c *PeopleCommand) runDelete(args []string) int {
 		return failure
 	}
 
-	if confirm, err := yesNo(c.UI, fmt.Sprintf("Are you sure you want to deleted %s %s", person.FirstName, person.LastName)); err != nil {
+	if confirm, err := yesNo(c.UI, fmt.Sprintf("Are you sure you want to delete %s %s", person.FirstName, person.LastName)); err != nil {
 		c.errorf(err.Error())
 	} else if !confirm {
 		c.printf("Cancelled")
@@ -326,14 +326,13 @@ func (c *PeopleCommand) runStream(args []string) int {
 	for i, n := range notes {
 		c.printf("%d) %s", i, n.Text)
 
-		/*
-			if i != len(notes)-1 {
-				if _, err := c.UI.Ask(""); err != nil {
-					c.errorf("input error: %s", err)
-					return failure
-				}
+		if i != len(notes)-1 {
+			// block and wait for enter until the next one
+			if _, err := c.UI.Ask(""); err != nil {
+				c.errorf("input error: %s", err)
+				return failure
 			}
-		*/
+		}
 	}
 
 	return success
