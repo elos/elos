@@ -96,6 +96,13 @@ func init() {
 				DB:     db,
 			}, databaseError
 		},
+		"people": func() (cli.Command, error) {
+			return &command.PeopleCommand{
+				UI:     UI,
+				UserID: Configuration.UserID,
+				DB:     db,
+			}, databaseError
+		},
 		"todo": func() (cli.Command, error) {
 			return &command.TodoCommand{
 				UI:     UI,

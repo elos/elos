@@ -20,9 +20,9 @@ const (
 // TodoCommand contains the state necessary to implement the
 // 'elos todo' command set.
 //
-// It  implements the cli.Command interface
+// It implements the cli.Command interface
 type TodoCommand struct {
-	// UI is used to communicate (for IO) with user
+	// UI is used to communicate (for IO) with the user
 	// It must be non-null
 	UI cli.Ui
 
@@ -70,8 +70,8 @@ Subcommands:
 }
 
 // Run runs the 'todo' command with the given command-line arguments.
-// It returns an exit status when it finishes.  0 indicates a sucess,
-// any othe integer indicates a failure.
+// It returns an exit status when it finishes. 0 indicates a sucess,
+// any other integer indicates a failure.
 //
 // All user interaction is handled by the command using the UI
 // interface.
@@ -275,8 +275,6 @@ func (c *TodoCommand) runEdit() int {
 		task.DeletedAt, err = dateInput(c.UI, "DeletedAt?")
 	case "name":
 		task.Name, err = stringInput(c.UI, "New name?")
-	case "person_id":
-		task.PersonId, err = stringInput(c.UI, "New id?")
 	default:
 		c.UI.Warn("That attribute is not recognized/supported")
 		return success
@@ -421,8 +419,7 @@ func (c *TodoCommand) promptSelectTask() (*models.Task, int) {
 		return nil, -1 // to indicate the parent command to exit
 	}
 
-	task := c.tasks[indexOfCurrent]
-	return task, indexOfCurrent
+	return c.tasks[indexOfCurrent], indexOfCurrent
 }
 
 // promptNewTask implements the process of creating a task using text

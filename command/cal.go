@@ -45,8 +45,10 @@ Usage:
 	elos cal <subcommand>
 
 Subcommands:
-	today	list fixtures for today
+	next	list the next fixture
+	now		list the current fixture
 	scheduling {base | weekday | yearday}	modify schedules
+	today	list fixtures for today
 `
 	return strings.TrimSpace(helpText)
 }
@@ -70,6 +72,8 @@ func (c *CalCommand) Run(args []string) int {
 	}
 
 	switch args[0] {
+	case "now":
+	case "next":
 	case "today":
 		return c.runToday(args)
 	case "scheduling":
@@ -87,6 +91,14 @@ func (c *CalCommand) Run(args []string) int {
 		}
 	}
 
+	return success
+}
+
+func (c *CalCommand) runNow(args []string) int {
+	return success
+}
+
+func (c *CalCommand) runNext(args []string) int {
 	return success
 }
 

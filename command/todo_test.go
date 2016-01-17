@@ -82,8 +82,7 @@ func TestTodoInadequateInitialization(t *testing.T) {
 		DB:     db,
 	}
 
-	// note: this TodoCommand has *Config that is empty
-	// esp. important that there is no UserID defined
+	// note: this TodoCommand has no UserID
 	missingUserID := &TodoCommand{
 		UI: ui,
 		DB: db,
