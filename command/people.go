@@ -46,7 +46,7 @@ Usage:
 Subcommands:
 	list	list all of the people
 	delete	delete a person
-	new		create a new person
+	new	create a new person
 	note	add a note to a person
 	stream	stream notes for a person
 `
@@ -142,6 +142,7 @@ func (c *PeopleCommand) init() int {
 	person := models.NewPerson()
 	for iter.Next(person) {
 		c.people = append(c.people, person)
+		person = models.NewPerson()
 	}
 
 	if err := iter.Close(); err != nil {
