@@ -58,27 +58,8 @@ func init() {
 	}
 
 	Commands = map[string]cli.CommandFactory{
-		"auth": func() (cli.Command, error) {
-			return &command.AuthCommand{
-				UI:     UI,
-				Config: Configuration,
-			}, nil
-		},
-		"cal": func() (cli.Command, error) {
-			return &command.CalCommand{
-				UI:     UI,
-				UserID: Configuration.UserID,
-				DB:     db,
-			}, databaseError
-		},
 		"conf": func() (cli.Command, error) {
 			return &command.ConfCommand{
-				Ui:     UI,
-				Config: Configuration,
-			}, nil
-		},
-		"data": func() (cli.Command, error) {
-			return &command.DataCommand{
 				Ui:     UI,
 				Config: Configuration,
 			}, nil
@@ -90,25 +71,18 @@ func init() {
 				DB:     db,
 			}, databaseError
 		},
-		"init": func() (cli.Command, error) {
-			return &command.InitCommand{
-				Ui:     UI,
-				Config: Configuration,
-			}, nil
-		},
-		"note": func() (cli.Command, error) {
-			return &command.NoteCommand{
-				Ui:     UI,
-				Config: Configuration,
-				DB:     db,
-			}, databaseError
-		},
 		"people": func() (cli.Command, error) {
 			return &command.PeopleCommand{
 				UI:     UI,
 				UserID: Configuration.UserID,
 				DB:     db,
 			}, databaseError
+		},
+		"setup": func() (cli.Command, error) {
+			return &command.SetupCommand{
+				UI:     UI,
+				Config: Configuration,
+			}, nil
 		},
 		"todo": func() (cli.Command, error) {
 			return &command.TodoCommand{
