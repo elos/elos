@@ -48,6 +48,12 @@ func (c *SetupCommand) Run(args []string) int {
 		return failure
 	}
 
+	if c.Config.Host == "" {
+		if i := c.promptNewHost(); i != success {
+			return i
+		}
+	}
+
 	if alreadyUser, err := yesNo(c.UI, "Do you already have an elos account?"); err != nil {
 		c.errorf("input error: %s", err)
 		return failure
@@ -80,6 +86,22 @@ func (c *SetupCommand) setConfig(username, password, id string) int {
 		c.errorf("failed to persist configuration change: %s", err)
 		return failure
 	}
+	return success
+}
+
+func (c *SetupCommand) promptNewHost() int {
+	host, err := stringInput(c.UI, "What host would you like to connect to?")
+	if err != nil {
+		c.errorf("input: %s", err)
+		return failure
+	}
+
+	c.Config.Host = host
+	if err := WriteConfigFile(c.Config); err != nil {
+		c.errorf("failed to persist configuration change: %s", err)
+		return failure
+	}
+
 	return success
 }
 

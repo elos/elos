@@ -35,6 +35,7 @@ func TestSetupCurrentUser(t *testing.T) {
 
 	ui, conf, c := newMockSetupCommand(t)
 	conf.Path = f.Name()
+	conf.Host = "fake" // not needed here because doesn't hit api
 
 	db := mem.NewDB()
 
@@ -114,10 +115,9 @@ func TestSetupNewUser(t *testing.T) {
 
 	ui, conf, c := newMockSetupCommand(t)
 	conf.Path = f.Name()
-	conf.Host = s.URL
 
 	// no already account, then username input and password input
-	ui.InputReader = bytes.NewBufferString("n\npublic\nprivate\n")
+	ui.InputReader = bytes.NewBufferString(fmt.Sprintf("%s\nn\npublic\nprivate\n", s.URL))
 
 	t.Log("running: `elos setup`")
 	code := c.Run([]string{})

@@ -58,12 +58,6 @@ func init() {
 	}
 
 	Commands = map[string]cli.CommandFactory{
-		"conf": func() (cli.Command, error) {
-			return &command.ConfCommand{
-				Ui:     UI,
-				Config: Configuration,
-			}, nil
-		},
 		"habit": func() (cli.Command, error) {
 			return &command.HabitCommand{
 				UI:     UI,
