@@ -2,6 +2,7 @@ package command
 
 import (
 	"bytes"
+	"log"
 	"strings"
 	"testing"
 	"time"
@@ -276,6 +277,142 @@ func TestTodoEdit(t *testing.T) {
 	if task.Name != "newname" {
 		t.Fatalf("Expected the task's name to have changed to 'newname'")
 	}
+}
+
+// --- }}}
+
+// --- `elos todo goal` {{{
+
+// TestTodoGoal tests the `goal` subcommand
+func TestTodoGoal(t *testing.T) {
+	ui, db, user, c := newMockTodoCommand(t)
+
+	// load a task into the db
+	task := newTestTask(t, db, user)
+	task.Name = "Take out the trash"
+	if err := db.Save(task); err != nil {
+		t.Fatal(err)
+	}
+
+	// load input
+	input := strings.Join([]string{
+		"0",
+	}, "\n")
+	ui.InputReader = bytes.NewBufferString(input)
+
+	t.Log("running: `elos todo goal`")
+	code := c.Run([]string{"goal"})
+	t.Log("command 'goal' terminated")
+
+	errput := ui.ErrorWriter.String()
+	output := ui.OutputWriter.String()
+	t.Logf("Error output:\n %s", errput)
+	t.Logf("Output:\n %s", output)
+
+	// verify there were no errors
+	if errput != "" {
+		t.Fatalf("Expected no error output, got: %s", errput)
+	}
+
+	// verify success
+	if code != success {
+		t.Fatalf("Expected successful exit code along with empty error output.")
+	}
+
+	// verify some of the output
+	if !strings.Contains(output, "0)") {
+		t.Fatalf("Output should have contained a 0) for listing tasks")
+	}
+
+	if !strings.Contains(output, "Which number?") {
+		t.Fatalf("Output should have asked for a task number")
+	}
+
+	t.Log("Checking that the task is now a member of goals")
+
+	// reload task:
+	if err := db.PopulateByID(task); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Task:\n%+v", task)
+
+	// load tag
+	tag, err := models.TagByName(db, models.GoalTagName, user)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	t.Logf("GOALS tag:\n%+v", tag)
+
+	tasks, err := tag.Tasks(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if len(tasks) != 1 {
+		t.Fatalf("Expected goals tag to contain just one task, contained: %d", len(tasks))
+	}
+
+	if tasks[0].Id != task.Id {
+		t.Fatal("Expected task to now be a part of goals")
+	}
+}
+
+// --- }}}
+
+// --- `elos todo goals` {{{
+
+// TestTodoGoals tests the `goals` subcommand
+func TestTodoGoals(t *testing.T) {
+	ui, db, user, c := newMockTodoCommand(t)
+
+	// load a task into the db
+	task := newTestTask(t, db, user)
+	task.Name = "Take out the trash"
+	if err := db.Save(task); err != nil {
+		t.Fatal(err)
+	}
+
+	tag, err := models.TagByName(db, models.GoalTagName, user)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	task.IncludeTag(tag)
+
+	if err := db.Save(task); err != nil {
+		log.Fatal(err)
+	}
+
+	t.Log("running: `elos todo goals`")
+	code := c.Run([]string{"goals"})
+	t.Log("command 'goals' terminated")
+
+	errput := ui.ErrorWriter.String()
+	output := ui.OutputWriter.String()
+	t.Logf("Error output:\n %s", errput)
+	t.Logf("Output:\n %s", output)
+
+	// verify there were no errors
+	if errput != "" {
+		t.Fatalf("Expected no error output, got: %s", errput)
+	}
+
+	// verify success
+	if code != success {
+		t.Fatalf("Expected successful exit code along with empty error output.")
+	}
+
+	// verify some of the output
+	if !strings.Contains(output, "0)") {
+		t.Fatalf("Output should have contained a 0) for listing tasks")
+	}
+
+	if !strings.Contains(output, task.Name) {
+		t.Fatalf("Output should have contained task name")
+	}
+
 }
 
 // --- }}}
@@ -604,6 +741,82 @@ func TestTodoSuggest(t *testing.T) {
 	// verify output
 	if !strings.Contains(output, "SUGGESTED") {
 		t.Fatal("Expected output to containe 'SUGGESTED', the name of the only task")
+	}
+}
+
+// --- }}}
+
+// --- `elos todo tag` {{{
+func TestTodoTag(t *testing.T) {
+	ui, db, user, c := newMockTodoCommand(t)
+
+	// load a task into the db
+	task := newTestTask(t, db, user)
+	task.Name = "Take out the trash"
+	if err := db.Save(task); err != nil {
+		t.Fatal(err)
+	}
+
+	tagName := "tag name"
+	tag, err := models.TagByName(db, tagName, user)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// load input
+	input := strings.Join([]string{
+		"0", // selecting the task to tag
+		"0", // selecting the tag
+	}, "\n")
+	ui.InputReader = bytes.NewBufferString(input)
+
+	t.Log("running: `elos todo tag`")
+	code := c.Run([]string{"tag"})
+	t.Log("command 'tag' terminated")
+
+	errput := ui.ErrorWriter.String()
+	output := ui.OutputWriter.String()
+	t.Logf("Error output:\n %s", errput)
+	t.Logf("Output:\n %s", output)
+
+	// verify there were no errors
+	if errput != "" {
+		t.Fatalf("Expected no error output, got: %s", errput)
+	}
+
+	// verify success
+	if code != success {
+		t.Fatalf("Expected successful exit code along with empty error output.")
+	}
+
+	// verify some of the output
+	if !strings.Contains(output, "0)") {
+		t.Fatalf("Output should have contained a 0) for listing tasks")
+	}
+
+	if !strings.Contains(output, "Which number?") {
+		t.Fatalf("Output should have asked for a task number")
+	}
+
+	if !strings.Contains(output, tagName) {
+		t.Fatalf("Output should have included the tag's name")
+	}
+
+	t.Log("Checking that the task now includes the tag")
+
+	if err := db.PopulateByID(task); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Here's the task:\n%+v", task)
+	t.Logf("Here's the tag:\n%+v", tag)
+
+	if len(task.TagsIds) != 1 {
+		t.Fatal("Expected the task to have one tag")
+	}
+
+	if task.TagsIds[0] != tag.Id {
+		t.Fatal("Expected the task to have the tag")
 	}
 }
 

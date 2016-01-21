@@ -12,6 +12,7 @@ import (
 	"github.com/elos/elos/command"
 	"github.com/elos/gaia"
 	"github.com/elos/models"
+	"github.com/elos/models/access"
 	"github.com/mitchellh/cli"
 )
 
@@ -144,7 +145,7 @@ func TestSetupNewUser(t *testing.T) {
 		t.Fatalf("Output should have contained a 'account' for saying something about an account")
 	}
 
-	cred, err := models.Authenticate(db, "public", "private")
+	cred, err := access.Authenticate(db, "public", "private")
 	if err != nil {
 		t.Fatal(err)
 	}

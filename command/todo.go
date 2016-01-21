@@ -40,6 +40,9 @@ type TodoCommand struct {
 	// the command prompt, the task list is complete and
 	// definitive (reflects exactly what is in the database).
 	tasks []*models.Task
+
+	// The tags of the user given by c.UserID
+	tags map[data.ID]*models.Tag
 }
 
 // Synopsis is a one-line, short summary of the 'todo' command.
@@ -60,11 +63,14 @@ Subcommands:
 	complete	complete a task
 	delete		delete a task
 	edit		edit a task
+	goal	set a task as a goal
+	goals	list task goals
 	list		list all your tasks
 	new		create a new task
 	start		start a task
 	stop		stop a task
 	suggest		have elos suggest a task
+	tag	tag a task
 `
 	return strings.TrimSpace(helpText)
 }
@@ -99,6 +105,12 @@ func (c *TodoCommand) Run(args []string) int {
 		case "e":
 		case "edit":
 			c.runEdit()
+		case "g":
+		case "goal":
+			c.runGoal()
+		case "gs":
+		case "goals":
+			c.runGoals()
 		case "l":
 		case "list":
 			c.runList()
@@ -114,6 +126,9 @@ func (c *TodoCommand) Run(args []string) int {
 		case "su":
 		case "suggest":
 			c.runSuggest()
+		case "t":
+		case "tag":
+			c.runTag()
 		default:
 			c.UI.Output(c.Help())
 		}
@@ -128,6 +143,9 @@ func (c *TodoCommand) Run(args []string) int {
 // is valid (has a non-null database & UI and a user id).
 //
 // It loads all of the UserID's tasks into the tasks field of the
+// TodoCommand object.
+//
+// It loads all of the UserID's tags into the tags field of the
 // TodoCommand object.
 //
 // A 0 return value indicates success, a 1 indiciates failure. The
@@ -149,6 +167,8 @@ func (c *TodoCommand) init() int {
 		c.errorf("initialization: no user id")
 		return failure
 	}
+
+	// Load the tasks
 
 	taskQuery := c.DB.Query(models.TaskKind)
 
@@ -173,10 +193,32 @@ func (c *TodoCommand) init() int {
 
 	if err := iter.Close(); err != nil {
 		c.errorf("data retrieval: querying tasks")
-		return 1
+		return failure
 	}
 
 	c.tasks = tasks
+
+	// Load the tags
+	c.tags = make(map[data.ID]*models.Tag)
+
+	iter, err = c.DB.Query(models.TagKind).Select(data.AttrMap{
+		"owner_id": c.UserID,
+	}).Execute()
+	if err != nil {
+		c.errorf("data retrieval: querying tags")
+		return failure
+	}
+
+	tag := models.NewTag()
+	for iter.Next(tag) {
+		c.tags[tag.ID()] = tag
+		tag = models.NewTag()
+	}
+
+	if err := iter.Close(); err != nil {
+		c.errorf("data retrieval: querying tags")
+		return failure
+	}
 
 	return success
 }
@@ -248,7 +290,8 @@ func (c *TodoCommand) runDelete() int {
 	return success
 }
 
-// runEdit runs the 'edit' subcommand, which is currently not implemented
+// runEdit runs the 'edit' subcommand. It returns a status code, 0 indicates
+// success, and 1 failure.
 func (c *TodoCommand) runEdit() int {
 	task, index := c.promptSelectTask()
 	if index < 0 {
@@ -289,6 +332,69 @@ func (c *TodoCommand) runEdit() int {
 		c.errorf("(subcommand edit) Error: %s", err)
 		return failure
 	}
+
+	return success
+}
+
+// runGoal runs the 'goal' subcommand, which adds this task to this
+// user's goals
+func (c *TodoCommand) runGoal() int {
+	task, index := c.promptSelectTask()
+	if index < 0 {
+		return failure
+	}
+
+	u := &models.User{Id: c.UserID}
+	if err := c.DB.PopulateByID(u); err != nil {
+		c.errorf("retrieving user: %s", err)
+		return failure
+	}
+
+	goalTag, err := models.TagByName(c.DB, models.GoalTagName, u)
+	if err != nil {
+		c.errorf("retrieving GOAL tag: %s", err)
+		return failure
+	}
+
+	task.IncludeTag(goalTag)
+
+	if err := c.DB.Save(task); err != nil {
+		c.errorf("saving task: %s", err)
+		return failure
+	}
+
+	return success
+}
+
+// runGoals runs the 'goals' subcommand, which prints the user's goals
+func (c *TodoCommand) runGoals() int {
+	goalTag, err := models.TagByName(c.DB, models.GoalTagName, &models.User{Id: c.UserID})
+	if err != nil {
+		c.errorf("retrieving GOAL tag: %s", err)
+		return failure
+	}
+
+	tasks, err := goalTag.Tasks(c.DB)
+	if err != nil {
+		c.errorf("retrieving GOAL tasks: %s", err)
+		return failure
+	}
+
+	taskIds := make(map[data.ID]bool)
+	for i := range tasks {
+		taskIds[tasks[i].ID()] = true
+	}
+
+	if len(taskIds) == 0 {
+		c.UI.Output("No goals set. Use `elos todo goal` to add a goal.")
+		return success
+	}
+
+	c.UI.Output("Current Goals:")
+	c.printTaskList(func(t *models.Task) bool {
+		_, ok := taskIds[t.ID()]
+		return ok
+	})
 
 	return success
 }
@@ -379,13 +485,60 @@ func (c *TodoCommand) runSuggest() int {
 	return success
 }
 
+// runTag runs the 'tag' subcommand, which uses elos'
+// tagging system to tag a particular task
+func (c *TodoCommand) runTag() int {
+	task, index := c.promptSelectTask()
+	if index < 0 {
+		return failure
+	}
+
+	tag := c.promptSelectTag()
+	if tag == nil {
+		return failure
+	}
+
+	task.IncludeTag(tag)
+
+	if err := c.DB.Save(task); err != nil {
+		c.errorf("saving task")
+		return failure
+	}
+
+	return success
+}
+
 // printTaskList prints the list of tasks, with deadline and salience info
 // the list is numbered, and can be useful for tasks that involve the user
 // looking at / selecting a particular task (however use promptSelectTask
 // for the case of selecting a single task from the c.tasks)
-func (c *TodoCommand) printTaskList() {
+func (c *TodoCommand) printTaskList(selectors ...func(*models.Task) bool) {
+PrintLoop:
 	for i, t := range c.tasks {
-		c.UI.Output(fmt.Sprintf(" %d) %s [%s]\n\tSalience:%f", i, t.Name, t.Deadline.Format("Mon Jan 2 15:04"), t.Salience()))
+		for i := range selectors {
+			if !selectors[i](t) {
+				continue PrintLoop
+			}
+		}
+
+		// Tags
+		tagList := ""
+		for _, id := range t.TagsIds {
+			tagList += fmt.Sprintf("[%s]", c.tags[data.ID(id)].Name)
+		}
+		if tagList != "" {
+			tagList += ": "
+		} else {
+			tagList = " " + tagList
+		}
+
+		// Deadline
+		deadline := ""
+		if !t.Deadline.Equal(*new(time.Time)) {
+			deadline = fmt.Sprintf("(%s)", t.Deadline.Format("Mon Jan 2 15:04"))
+		}
+
+		c.UI.Output(fmt.Sprintf("%d)%s%s %s\n\tSalience:%f", i, tagList, t.Name, deadline, t.Salience()))
 	}
 }
 
@@ -511,4 +664,43 @@ func (c *TodoCommand) promptNewTask() (task *models.Task, err error) {
 	}
 
 	return
+}
+
+func (c *TodoCommand) printTagList(tags []*models.Tag) {
+	for i, t := range tags {
+		c.UI.Output(fmt.Sprintf("%d) %s", i, t.Name))
+	}
+}
+
+func (c *TodoCommand) promptSelectTag() (tag *models.Tag) {
+	if len(c.tags) == 0 {
+		c.UI.Warn("You do not have any tags")
+		return nil
+	}
+
+	tags := make([]*models.Tag, len(c.tags))
+	count := 0
+	for _, t := range c.tags {
+		tags[count] = t
+		count++
+	}
+
+	c.printTagList(tags)
+
+	var (
+		indexOfCurrent int
+		err            error
+	)
+
+	if indexOfCurrent, err = intInput(c.UI, "Which number?"); err != nil {
+		c.errorf("input error: %s", err)
+		return nil
+	}
+
+	if indexOfCurrent < 0 || indexOfCurrent > len(c.tasks)-1 {
+		c.UI.Warn(fmt.Sprintf("%d is not a valid index. Need a # in (0,...,%d)", indexOfCurrent, len(c.tags)-1))
+		return nil
+	}
+
+	return tags[indexOfCurrent]
 }
