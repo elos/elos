@@ -382,7 +382,9 @@ func (c *TodoCommand) runGoals() int {
 
 	taskIds := make(map[data.ID]bool)
 	for i := range tasks {
-		taskIds[tasks[i].ID()] = true
+		if !tasks[i].IsComplete() {
+			taskIds[tasks[i].ID()] = true
+		}
 	}
 
 	if len(taskIds) == 0 {
