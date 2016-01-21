@@ -41,7 +41,7 @@ func TestSetupCurrentUser(t *testing.T) {
 	db := mem.NewDB()
 
 	t.Log("Creating test user")
-	u, err := models.CreateUser(db, "public", "private")
+	u, _, err := models.CreateUser(db, "public", "private")
 	if err != nil {
 		t.Fatal(err)
 	}

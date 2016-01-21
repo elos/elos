@@ -63,14 +63,14 @@ Subcommands:
 	complete	complete a task
 	delete		delete a task
 	edit		edit a task
-	goal	set a task as a goal
-	goals	list task goals
+	goal		set a task as a goal
+	goals		list task goals
 	list		list all your tasks
 	new		create a new task
 	start		start a task
 	stop		stop a task
 	suggest		have elos suggest a task
-	tag	tag a task
+	tag		tag a task
 `
 	return strings.TrimSpace(helpText)
 }
