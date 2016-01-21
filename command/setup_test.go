@@ -11,6 +11,7 @@ import (
 	"github.com/elos/data/builtin/mem"
 	"github.com/elos/elos/command"
 	"github.com/elos/gaia"
+	"github.com/elos/gaia/services"
 	"github.com/elos/models"
 	"github.com/elos/models/access"
 	"github.com/mitchellh/cli"
@@ -107,7 +108,9 @@ func TestSetupNewUser(t *testing.T) {
 	g := gaia.New(
 		&gaia.Middleware{},
 		&gaia.Services{
-			DB: db,
+			SMSCommandSessions: services.NewSMSMux(),
+			Logger:             services.NewTestLogger(t),
+			DB:                 db,
 		},
 	)
 
