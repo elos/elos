@@ -296,19 +296,25 @@ func createFixture(ui cli.Ui, ownerID string, db data.DB) (fixture *models.Fixtu
 	return
 }
 
+// errorf is a IO function which performs the equivalent of log.Errorf
+// in the standard lib, except using the cli.Ui interface with which
+// the CalCommand was provided.
+func (c *CalCommand) errorf(s string, values ...interface{}) {
+	c.UI.Error("[elos cal] Error: " + fmt.Sprintf(s, values...))
+}
+
 func (c *CalCommand) init() int {
 	if c.UI == nil {
-		c.UI.Error("No UI")
+		return failure // we can't c.errorf because the user interface isn't defined
+	}
+
+	if c.DB == nil {
+		c.errorf("no database")
 		return failure
 	}
 
 	if c.UserID == "" {
-		c.UI.Error("No user id")
-		return failure
-	}
-
-	if c.DB == nil {
-		c.UI.Error("No database")
+		c.errorf("no user id")
 		return failure
 	}
 

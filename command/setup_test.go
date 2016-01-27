@@ -15,6 +15,7 @@ import (
 	"github.com/elos/models"
 	"github.com/elos/models/access"
 	"github.com/mitchellh/cli"
+	"golang.org/x/net/context"
 )
 
 func newMockSetupCommand(t *testing.T) (*cli.MockUi, *command.Config, *command.SetupCommand) {
@@ -106,6 +107,7 @@ func TestSetupNewUser(t *testing.T) {
 	db := mem.NewDB()
 
 	g := gaia.New(
+		context.Background(),
 		&gaia.Middleware{},
 		&gaia.Services{
 			SMSCommandSessions: services.NewSMSMux(),

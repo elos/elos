@@ -23,7 +23,7 @@ const (
 // It implements the cli.Command interface
 type TodoCommand struct {
 	// UI is used to communicate (for IO) with the user
-	// It must be non-null
+	// It must be non-nil
 	UI cli.Ui
 
 	// UserID is the id of the user we are acting on behalf of.
@@ -153,7 +153,7 @@ func (c *TodoCommand) Run(args []string) int {
 func (c *TodoCommand) init() int {
 	// ensure that we have a interface
 	if c.UI == nil {
-		return failure // we c.errorf because the user interface isn't defined
+		return failure // we can't c.errorf because the user interface isn't defined
 	}
 
 	// ensure that we have a database

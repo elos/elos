@@ -117,7 +117,7 @@ func TestTodoInadequateInitialization(t *testing.T) {
 
 // --- `elos todo complete` {{{
 
-// TestTodoComplete test the `complete` subcommand
+// TestTodoComplete tests the `complete` subcommand
 func TestTodoComplete(t *testing.T) {
 	ui, db, user, c := newMockTodoCommand(t)
 

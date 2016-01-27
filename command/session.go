@@ -16,7 +16,7 @@ func NewSession(user *models.User, db data.DB, input <-chan string, output chan<
 		user:   user,
 		db:     db,
 		input:  input,
-		output: output,
+		Output: output,
 		bail:   bail,
 	}
 }
@@ -32,7 +32,7 @@ type Session struct {
 	input <-chan string
 
 	// channel to send string output on
-	output chan<- string
+	Output chan<- string
 
 	// function to call indicating failure, or exit
 	// for example, on timeout, on errors
@@ -41,7 +41,7 @@ type Session struct {
 
 func (s *Session) Start() {
 	if s.user == nil {
-		s.output <- "Looks like you don't have an account, sorry :("
+		s.Output <- "Looks like you don't have an account, sorry :("
 		s.bail()
 	}
 
@@ -55,7 +55,7 @@ func (s *Session) run(args []string) {
 	// construct a new CLI with name and version
 	c := cli.NewCLI("elos", "0.1")
 	c.Args = args
-	ui := NewTextUI(s.input, s.output)
+	ui := NewTextUI(s.input, s.Output)
 	c.Commands = map[string]cli.CommandFactory{
 		"todo": func() (cli.Command, error) {
 			return &TodoCommand{
