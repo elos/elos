@@ -61,6 +61,7 @@ Usage:
 
 Subcommands:
 	complete	complete a task
+	current		list current tasks
 	delete		delete a task
 	edit		edit a task
 	goal		set a task as a goal
@@ -96,9 +97,12 @@ func (c *TodoCommand) Run(args []string) int {
 	switch len(args) {
 	case 1:
 		switch args[0] {
-		case "c":
+		case "co":
 		case "complete":
 			return c.runComplete()
+		case "cu":
+		case "current":
+			return c.runCurrent()
 		case "d":
 		case "delete":
 			c.runDelete()
@@ -262,6 +266,17 @@ func (c *TodoCommand) runComplete() int {
 	c.removeTask(index)
 
 	c.UI.Info(fmt.Sprintf("Completed '%s'", task.Name))
+
+	return success
+}
+
+// runCurrent executes the "elos todo current" command.
+//
+// Current prints the tasks that are currently in progress
+func (c *TodoCommand) runCurrent() int {
+	c.printTaskList(func(t *models.Task) bool {
+		return t.InProgress()
+	})
 
 	return success
 }

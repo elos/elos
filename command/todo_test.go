@@ -169,6 +169,47 @@ func TestTodoComplete(t *testing.T) {
 
 // --- }}}
 
+// --- `elos todo current` {{{
+
+// TestTodoCurrent tests the `current` subcommand
+func TestTodoCurrent(t *testing.T) {
+	ui, db, user, c := newMockTodoCommand(t)
+
+	// setup that there is one task
+	task := newTestTask(t, db, user)
+	taskName := "task name"
+	task.Name = taskName
+	task.Start()
+	if err := db.Save(task); err != nil {
+		t.Fatal(err)
+	}
+
+	// run the effect of `elos todo complete`
+	code := c.Run([]string{"current"})
+
+	errput := ui.ErrorWriter.String()
+	output := ui.OutputWriter.String()
+	t.Logf("Error output:\n %s", errput)
+	t.Logf("Output:\n %s", output)
+
+	// verify there were no errors
+	if errput != "" {
+		t.Fatalf("Expected no error output, got: %s", errput)
+	}
+
+	// verify success
+	if code != success {
+		t.Fatalf("Expected successful exit code along with empty error output.")
+	}
+
+	// verify some of the output
+	if !strings.Contains(output, taskName) {
+		t.Fatalf("Output should have contained the running task's name: '%s'", taskName)
+	}
+}
+
+// --- }}}
+
 // --- `elos todo delete` {{{
 
 // TestTodoDelete test the `delete` subcommand
