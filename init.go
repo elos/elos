@@ -78,6 +78,13 @@ func init() {
 				Config: Configuration,
 			}, nil
 		},
+		"tag": func() (cli.Command, error) {
+			return &command.TagCommand{
+				UI:     UI,
+				UserID: Configuration.UserID,
+				DB:     db,
+			}, databaseError
+		},
 		"todo": func() (cli.Command, error) {
 			return &command.TodoCommand{
 				UI:     UI,

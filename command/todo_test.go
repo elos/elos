@@ -479,7 +479,7 @@ func TestTodoList(t *testing.T) {
 
 	t.Log("running: `elos todo list`")
 	code := c.Run([]string{"list"})
-	t.Log("command 'start' terminated")
+	t.Log("command 'list' terminated")
 
 	errput := ui.ErrorWriter.String()
 	output := ui.OutputWriter.String()

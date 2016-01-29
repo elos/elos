@@ -33,6 +33,7 @@ type TodoCommand struct {
 	UserID string
 
 	// DB is the elos database we interface with.
+	// It must be non-nil
 	data.DB
 
 	// The tasks of the user given by c.UserID
@@ -586,7 +587,7 @@ PrintLoop:
 		// Tags
 		tagList := ""
 		for _, id := range t.TagsIds {
-			tagList += fmt.Sprintf("[%s]", c.tags[data.ID(id)].Name)
+			tagList += fmt.Sprintf(" [%s]", c.tags[data.ID(id)].Name)
 		}
 		if tagList != "" {
 			tagList += ": "
