@@ -381,7 +381,7 @@ func TestTodoGoal(t *testing.T) {
 	t.Logf("Task:\n%+v", task)
 
 	// load tag
-	tg, err := tag.ByName(db, user, tag.Goal)
+	tg, err := tag.ForName(db, user, tag.Goal)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -417,7 +417,7 @@ func TestTodoGoals(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tg, err := tag.ByName(db, user, tag.Goal)
+	tg, err := tag.ForName(db, user, tag.Goal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -801,7 +801,7 @@ func TestTodoTag(t *testing.T) {
 	}
 
 	tagName := "tag name"
-	tg, err := tag.ByName(db, user, tag.Name(tagName))
+	tg, err := tag.ForName(db, user, tag.Name(tagName))
 	if err != nil {
 		t.Fatal(err)
 	}

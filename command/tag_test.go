@@ -209,7 +209,7 @@ func TestTagList(t *testing.T) {
 
 // --- `elos tag new` {{{
 
-// TestTagList test the `new` subcommand
+// TestTagNew test the `new` subcommand
 func TestTagNew(t *testing.T) {
 	ui, db, _, c := newMockTagCommand(t)
 
@@ -246,6 +246,67 @@ func TestTagNew(t *testing.T) {
 	tg := models.NewTag()
 	if err := db.PopulateByField("name", tagName, tg); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// --- }}}
+
+// --- `elos tag edit` {{{
+
+// TestTagEdit test the `edit` subcommand
+func TestTagEdit(t *testing.T) {
+	ui, db, u, c := newMockTagCommand(t)
+
+	tg := newTestTag(t, db, u)
+	tagName := "asdkfjlasdjfasfdA"
+	tg.Name = tagName
+	if err := db.Save(tg); err != nil {
+		t.Fatal(err)
+	}
+
+	newTagName := "not_the_other_tag_name"
+
+	input := strings.Join([]string{
+		"0",
+		"name",
+		newTagName,
+	}, "\n")
+
+	// just input the name
+	ui.InputReader = bytes.NewBufferString(input)
+
+	t.Log("running: `elos tag edit`")
+	code := c.Run([]string{"edit"})
+	t.Log("command 'edit' terminated")
+
+	errput := ui.ErrorWriter.String()
+	output := ui.OutputWriter.String()
+	t.Logf("Error output:\n %s", errput)
+	t.Logf("Output:\n %s", output)
+
+	// verify there were no errors
+	if errput != "" {
+		t.Fatalf("Expected no error output, got: %s", errput)
+	}
+
+	// verify success
+	if code != success {
+		t.Fatalf("Expected successful exit code along with empty error output.")
+	}
+
+	// verify some of the output
+	if !strings.Contains(output, "Name") {
+		t.Fatalf("Output should have contained a 'Name' for asking for the tag's name")
+	}
+
+	if err := db.PopulateByID(tg); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Tag:\n%+v", tg)
+
+	if tg.Name != newTagName {
+		t.Fatalf("Expected tag's name to become '%s', but was '%s'", newTagName, tg.Name)
 	}
 }
 

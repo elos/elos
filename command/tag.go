@@ -1,11 +1,14 @@
 package command
 
 import (
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/elos/data"
 	"github.com/elos/models"
+	"github.com/elos/models/tag"
 	"github.com/mitchellh/cli"
 )
 
@@ -46,9 +49,10 @@ Usage:
 	elos tag <subcommand>
 
 Subcommands:
+	delete		delete a tag
+	edit		edit a tag
 	list		list all your tags
 	new		create a new tag
-	delete		delete a tag
 `
 	return strings.TrimSpace(helpText)
 }
@@ -74,6 +78,9 @@ func (c *TagCommand) Run(args []string) int {
 	switch len(args) {
 	case 1:
 		switch args[0] {
+		case "e":
+		case "edit":
+			return c.runEdit(args)
 		case "d":
 		case "delete":
 			return c.runDelete(args)
@@ -147,6 +154,8 @@ func (c *TagCommand) init() int {
 
 	c.tags = tags
 
+	sort.Sort(tag.ByName(c.tags))
+
 	return success
 }
 
@@ -155,6 +164,48 @@ func (c *TagCommand) init() int {
 // the Tag was provided.
 func (c *TagCommand) errorf(s string, values ...interface{}) {
 	c.UI.Error("[elos tag] Error: " + fmt.Sprintf(s, values...))
+}
+
+func (c *TagCommand) runEdit(args []string) int {
+	tg, index := c.promptSelectTag()
+	if index < 0 {
+		return failure
+	}
+
+	bytes, err := json.MarshalIndent(tg, "", "	")
+	if err != nil {
+		return failure
+	}
+	c.UI.Output(string(bytes))
+
+	var attributeToEdit string
+	attributeToEdit, err = stringInput(c.UI, "Which attribute?")
+	if err != nil {
+		return failure
+	}
+
+	switch attributeToEdit {
+	case "name":
+		tg.Name, err = stringInput(c.UI, "Name")
+	default:
+		c.UI.Warn("That attribute is not recognized/supported")
+		return success
+	}
+
+	if err != nil {
+		c.errorf("(subcommand edit) Input Error %s", err)
+		return failure
+	}
+
+	if err = c.DB.Save(tg); err != nil {
+		c.errorf("(subcommand edit) Error: %s", err)
+		return failure
+	}
+
+	c.UI.Output("Tag updated")
+
+	return success
+
 }
 
 // runDelete runs the 'delete' subcommand.

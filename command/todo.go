@@ -339,6 +339,9 @@ func (c *TodoCommand) runEdit() int {
 
 	var attributeToEdit string
 	attributeToEdit, err = stringInput(c.UI, "Which attribute?")
+	if err != nil {
+		return failure
+	}
 
 	switch attributeToEdit {
 	case "completed_at":
@@ -366,6 +369,8 @@ func (c *TodoCommand) runEdit() int {
 		return failure
 	}
 
+	c.UI.Info("Task updated")
+
 	return success
 }
 
@@ -383,7 +388,7 @@ func (c *TodoCommand) runGoal() int {
 		return failure
 	}
 
-	goalTag, err := tag.ByName(c.DB, u, tag.Goal)
+	goalTag, err := tag.ForName(c.DB, u, tag.Goal)
 	if err != nil {
 		c.errorf("retrieving GOAL tag: %s", err)
 		return failure
@@ -401,7 +406,7 @@ func (c *TodoCommand) runGoal() int {
 
 // runGoals runs the 'goals' subcommand, which prints the user's goals
 func (c *TodoCommand) runGoals() int {
-	goalTag, err := tag.ByName(c.DB, &models.User{Id: c.UserID}, tag.Goal)
+	goalTag, err := tag.ForName(c.DB, &models.User{Id: c.UserID}, tag.Goal)
 	if err != nil {
 		c.errorf("retrieving GOAL tag: %s", err)
 		return failure

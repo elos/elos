@@ -181,7 +181,7 @@ func (c *HabitCommand) printHabitList() {
 // in the command's habits slice
 func (c *HabitCommand) promptSelectHabit() (*models.Habit, int) {
 	if len(c.habits) == 0 {
-		c.UI.Warn("You do not have any habit")
+		c.UI.Warn("You do not have any habits")
 		return nil, -1
 	}
 
