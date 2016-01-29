@@ -10,6 +10,7 @@ import (
 	"github.com/elos/data"
 	"github.com/elos/data/builtin/mem"
 	"github.com/elos/models"
+	"github.com/elos/models/habit"
 	"github.com/mitchellh/cli"
 )
 
@@ -105,7 +106,7 @@ func TestHabitCheckin(t *testing.T) {
 	ui, db, user, c := newMockHabitCommand(t)
 
 	t.Log("Creating a new test habit")
-	habit := newTestHabit(t, db, user, "Test Habit")
+	hbt := newTestHabit(t, db, user, "Test Habit")
 	t.Log("Created")
 
 	// checkin for the first habit
@@ -143,12 +144,12 @@ func TestHabitCheckin(t *testing.T) {
 
 	t.Log("Reload the habit")
 	// verify that the habit was checked off
-	if err := db.PopulateByID(habit); err != nil {
+	if err := db.PopulateByID(hbt); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("Habit:\n%+v", habit)
+	t.Logf("Habit:\n%+v", hbt)
 
-	if checkedIn, err := habit.CheckedInOn(db, time.Now()); err != nil {
+	if checkedIn, err := habit.DidCheckinOn(db, hbt, time.Now()); err != nil {
 		t.Fatal("Error while checking if habit is checked off: %s", err)
 	} else if !checkedIn {
 		t.Fatalf("Habit should be checked off for today now")
@@ -210,9 +211,9 @@ func TestHabitHistory(t *testing.T) {
 	ui, db, user, c := newMockHabitCommand(t)
 
 	t.Log("Creating a new test habit")
-	habit := newTestHabit(t, db, user, "hello")
-	habit.Checkin(db, "first checkin", time.Now().Add(-24*time.Hour))
-	habit.Checkin(db, "second checkin", time.Now())
+	hbt := newTestHabit(t, db, user, "hello")
+	habit.CheckinFor(db, hbt, "first checkin", time.Now().Add(-24*time.Hour))
+	habit.CheckinFor(db, hbt, "second checkin", time.Now())
 	t.Log("Created")
 
 	// select the first habit
@@ -362,7 +363,7 @@ func TestHabitToday(t *testing.T) {
 	newTestHabit(t, db, user, "second")
 	t.Log("created")
 	t.Log("checking one off")
-	if _, err := h1.Checkin(db, "", time.Now()); err != nil {
+	if _, err := habit.CheckinFor(db, h1, "", time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	t.Log("checked off")

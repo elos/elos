@@ -8,6 +8,8 @@ import (
 
 	"github.com/elos/data"
 	"github.com/elos/models"
+	"github.com/elos/models/tag"
+	"github.com/elos/models/task"
 	"github.com/mitchellh/cli"
 )
 
@@ -72,6 +74,7 @@ Subcommands:
 	stop		stop a task
 	suggest		have elos suggest a task
 	tag		tag a task
+	today		list the tasks you completed today
 `
 	return strings.TrimSpace(helpText)
 }
@@ -105,34 +108,37 @@ func (c *TodoCommand) Run(args []string) int {
 			return c.runCurrent()
 		case "d":
 		case "delete":
-			c.runDelete()
+			return c.runDelete()
 		case "e":
 		case "edit":
-			c.runEdit()
+			return c.runEdit()
 		case "g":
 		case "goal":
-			c.runGoal()
+			return c.runGoal()
 		case "gs":
 		case "goals":
-			c.runGoals()
+			return c.runGoals()
 		case "l":
 		case "list":
-			c.runList()
+			return c.runList()
 		case "n":
 		case "new":
 			return c.runNew()
 		case "sta":
 		case "start":
-			c.runStart()
+			return c.runStart()
 		case "sto":
 		case "stop":
-			c.runStop()
+			return c.runStop()
 		case "su":
 		case "suggest":
-			c.runSuggest()
-		case "t":
+			return c.runSuggest()
+		case "ta":
 		case "tag":
-			c.runTag()
+			return c.runTag()
+		case "to":
+		case "today":
+			return c.runToday()
 		default:
 			c.UI.Output(c.Help())
 		}
@@ -176,10 +182,8 @@ func (c *TodoCommand) init() int {
 
 	taskQuery := c.DB.Query(models.TaskKind)
 
-	// only retrieve _incomplete_ tasks
 	taskQuery.Select(data.AttrMap{
 		"owner_id": c.UserID,
-		"complete": false,
 	})
 
 	iter, err := taskQuery.Execute()
@@ -191,8 +195,10 @@ func (c *TodoCommand) init() int {
 	t := models.NewTask()
 	tasks := make([]*models.Task, 0)
 	for iter.Next(t) {
-		tasks = append(tasks, t)
-		t = models.NewTask()
+		if !task.IsComplete(t) {
+			tasks = append(tasks, t)
+			t = models.NewTask()
+		}
 	}
 
 	if err := iter.Close(); err != nil {
@@ -249,14 +255,14 @@ func (c *TodoCommand) removeTask(index int) {
 // If the task is in progress, it is also stopped. Finally, the task is
 // removed from the c.tasks.
 func (c *TodoCommand) runComplete() int {
-	task, index := c.promptSelectTask()
+	tsk, index := c.promptSelectTask()
 	if index < 0 {
 		return failure
 	}
 
-	task.StopAndComplete()
+	task.StopAndComplete(tsk)
 
-	err := c.DB.Save(task)
+	err := c.DB.Save(tsk)
 	if err != nil {
 		c.errorf("(subcommand complete) Error: %s", err)
 		return failure
@@ -265,7 +271,7 @@ func (c *TodoCommand) runComplete() int {
 	// remove the tasks from the list becuase it is now complete
 	c.removeTask(index)
 
-	c.UI.Info(fmt.Sprintf("Completed '%s'", task.Name))
+	c.UI.Info(fmt.Sprintf("Completed '%s'", tsk.Name))
 
 	return success
 }
@@ -274,9 +280,20 @@ func (c *TodoCommand) runComplete() int {
 //
 // Current prints the tasks that are currently in progress
 func (c *TodoCommand) runCurrent() int {
+	printedTask := false
 	c.printTaskList(func(t *models.Task) bool {
-		return t.InProgress()
+		ok := task.InProgress(t)
+
+		if ok {
+			printedTask = true
+		}
+
+		return ok
 	})
+
+	if !printedTask {
+		c.UI.Output("You have no tasks in progress")
+	}
 
 	return success
 }
@@ -323,8 +340,8 @@ func (c *TodoCommand) runEdit() int {
 	attributeToEdit, err = stringInput(c.UI, "Which attribute?")
 
 	switch attributeToEdit {
-	case "complete":
-		task.Complete, err = boolInput(c.UI, "Completed?")
+	case "completed_at":
+		task.CompletedAt, err = dateInput(c.UI, "CompletedAt?")
 	case "created_at":
 		task.CreatedAt, err = dateInput(c.UI, "CreatedAt?")
 	case "deadline":
@@ -365,7 +382,7 @@ func (c *TodoCommand) runGoal() int {
 		return failure
 	}
 
-	goalTag, err := models.TagByName(c.DB, models.GoalTagName, u)
+	goalTag, err := tag.ByName(c.DB, u, tag.Goal)
 	if err != nil {
 		c.errorf("retrieving GOAL tag: %s", err)
 		return failure
@@ -383,13 +400,13 @@ func (c *TodoCommand) runGoal() int {
 
 // runGoals runs the 'goals' subcommand, which prints the user's goals
 func (c *TodoCommand) runGoals() int {
-	goalTag, err := models.TagByName(c.DB, models.GoalTagName, &models.User{Id: c.UserID})
+	goalTag, err := tag.ByName(c.DB, &models.User{Id: c.UserID}, tag.Goal)
 	if err != nil {
 		c.errorf("retrieving GOAL tag: %s", err)
 		return failure
 	}
 
-	tasks, err := goalTag.Tasks(c.DB)
+	tasks, err := tag.TasksFor(c.DB, goalTag)
 	if err != nil {
 		c.errorf("retrieving GOAL tasks: %s", err)
 		return failure
@@ -397,7 +414,7 @@ func (c *TodoCommand) runGoals() int {
 
 	taskIds := make(map[data.ID]bool)
 	for i := range tasks {
-		if !tasks[i].IsComplete() {
+		if !task.IsComplete(tasks[i]) {
 			taskIds[tasks[i].ID()] = true
 		}
 	}
@@ -436,28 +453,28 @@ func (c *TodoCommand) runNew() int {
 }
 
 func (c *TodoCommand) runStart() int {
-	task, index := c.promptSelectTask()
+	tsk, index := c.promptSelectTask()
 	if index < 0 {
 		return failure
 	}
 
-	// task.Start() is idempotent, and simply won't
+	// task.Start(tsk) is idempotent, and simply won't
 	// do anything if the task is in progress, but we
 	// want to indicate to the user if they are not
 	// actually starting the task
-	if task.InProgress() {
+	if task.InProgress(tsk) {
 		c.UI.Warn("Task is already in progress")
 		return success
 	}
 
-	task.Start()
+	task.Start(tsk)
 
-	if err := c.DB.Save(task); err != nil {
+	if err := c.DB.Save(tsk); err != nil {
 		c.errorf("(subcommand start) Error: %s", err)
 		return failure
 	}
 
-	c.UI.Info(fmt.Sprintf("Started '%s'", task.Name))
+	c.UI.Info(fmt.Sprintf("Started '%s'", tsk.Name))
 
 	return success
 }
@@ -465,28 +482,28 @@ func (c *TodoCommand) runStart() int {
 // runStop runs the 'stop' command, which stops a task specified
 // by the user.
 func (c *TodoCommand) runStop() int {
-	task, index := c.promptSelectTask()
+	tsk, index := c.promptSelectTask()
 	if index < 0 {
 		return failure
 	}
 
-	// task.Stop() is idempotent, meaning it won't stop the task
+	// task.Stop(tsk) is idempotent, meaning it won't stop the task
 	// if it is not in progress, but we want to indicate this condition
 	// to the user.
-	if !task.InProgress() {
+	if !task.InProgress(tsk) {
 		c.UI.Warn("Task is not in progress")
 		return success
 	}
 
-	task.Stop()
+	task.Stop(tsk)
 
-	if err := c.DB.Save(task); err != nil {
+	if err := c.DB.Save(tsk); err != nil {
 		c.errorf("(subcommand stop) Error: %s", err)
 		return failure
 	}
 
 	// Info, i.e., "You worked for 20m that time"
-	c.UI.Info(fmt.Sprintf("You worked for %s that time", task.Stages[len(task.Stages)-1].Sub(task.Stages[len(task.Stages)-2])))
+	c.UI.Info(fmt.Sprintf("You worked for %s that time", tsk.Stages[len(tsk.Stages)-1].Sub(tsk.Stages[len(tsk.Stages)-2])))
 	return success
 }
 
@@ -498,7 +515,7 @@ func (c *TodoCommand) runSuggest() int {
 		return success
 	}
 
-	c.UI.Output(models.NewTaskGraph(c.tasks).Suggest().Name)
+	c.UI.Output(task.NewGraph(c.tasks).Suggest().Name)
 	return success
 }
 
@@ -520,6 +537,34 @@ func (c *TodoCommand) runTag() int {
 	if err := c.DB.Save(task); err != nil {
 		c.errorf("saving task")
 		return failure
+	}
+
+	return success
+}
+
+// runToday executes the "elos todo today" command.
+//
+// Today prints the tasks that are were completed today
+func (c *TodoCommand) runToday() int {
+	iter, err := c.DB.Query(models.TaskKind).Select(data.AttrMap{
+		"owner_id": c.UserID,
+	}).Execute()
+
+	if err != nil {
+		c.errorf("querying tasks: %s", err)
+	}
+
+	t := models.NewTask()
+	i := 0
+	for iter.Next(t) {
+		if task.IsComplete(t) && models.DayEquivalent(t.CompletedAt, time.Now()) {
+			c.UI.Output(fmt.Sprintf("%d) %s", i, t.Name))
+			i++
+		}
+	}
+
+	if i == 0 {
+		c.UI.Output("You have completed no tasks today")
 	}
 
 	return success
@@ -555,7 +600,7 @@ PrintLoop:
 			deadline = fmt.Sprintf("(%s)", t.Deadline.Format("Mon Jan 2 15:04"))
 		}
 
-		c.UI.Output(fmt.Sprintf("%d)%s%s %s\n\tSalience:%f", i, tagList, t.Name, deadline, t.Salience()))
+		c.UI.Output(fmt.Sprintf("%d)%s%s %s\n\tSalience:%f", i, tagList, t.Name, deadline, task.Salience(t)))
 	}
 }
 

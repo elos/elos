@@ -10,6 +10,8 @@ import (
 	"github.com/elos/data"
 	"github.com/elos/data/builtin/mem"
 	"github.com/elos/models"
+	"github.com/elos/models/tag"
+	"github.com/elos/models/task"
 	"github.com/mitchellh/cli"
 )
 
@@ -122,7 +124,7 @@ func TestTodoComplete(t *testing.T) {
 	ui, db, user, c := newMockTodoCommand(t)
 
 	// setup that there is one task
-	task := newTestTask(t, db, user)
+	tsk := newTestTask(t, db, user)
 
 	// load the input
 	ui.InputReader = bytes.NewBuffer([]byte("0\n"))
@@ -156,13 +158,13 @@ func TestTodoComplete(t *testing.T) {
 
 	t.Log("Checking that the task was completed")
 
-	if err := db.PopulateByID(task); err != nil {
+	if err := db.PopulateByID(tsk); err != nil {
 		t.Fatal(err)
 	}
 
-	t.Logf("Here's the task:\n%+v", task)
+	t.Logf("Here's the task:\n%+v", tsk)
 
-	if task.Complete != true {
+	if !task.IsComplete(tsk) {
 		t.Fatalf("Expected the task to be complete")
 	}
 }
@@ -176,11 +178,11 @@ func TestTodoCurrent(t *testing.T) {
 	ui, db, user, c := newMockTodoCommand(t)
 
 	// setup that there is one task
-	task := newTestTask(t, db, user)
+	tsk := newTestTask(t, db, user)
 	taskName := "task name"
-	task.Name = taskName
-	task.Start()
-	if err := db.Save(task); err != nil {
+	tsk.Name = taskName
+	task.Start(tsk)
+	if err := db.Save(tsk); err != nil {
 		t.Fatal(err)
 	}
 
@@ -379,14 +381,14 @@ func TestTodoGoal(t *testing.T) {
 	t.Logf("Task:\n%+v", task)
 
 	// load tag
-	tag, err := models.TagByName(db, models.GoalTagName, user)
+	tg, err := tag.ByName(db, user, tag.Goal)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	t.Logf("GOALS tag:\n%+v", tag)
+	t.Logf("GOALS tag:\n%+v", tg)
 
-	tasks, err := tag.Tasks(db)
+	tasks, err := tag.TasksFor(db, tg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -415,12 +417,12 @@ func TestTodoGoals(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tag, err := models.TagByName(db, models.GoalTagName, user)
+	tg, err := tag.ByName(db, user, tag.Goal)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	task.IncludeTag(tag)
+	task.IncludeTag(tg)
 
 	if err := db.Save(task); err != nil {
 		log.Fatal(err)
@@ -652,7 +654,7 @@ func TestTodoStartStop(t *testing.T) {
 	ui, db, user, c := newMockTodoCommand(t)
 
 	// load a task into the db
-	task := newTestTask(t, db, user)
+	tsk := newTestTask(t, db, user)
 
 	// load the input
 	ui.InputReader = bytes.NewBuffer([]byte("0\n"))
@@ -687,13 +689,13 @@ func TestTodoStartStop(t *testing.T) {
 
 	t.Log("Checking that the task was started")
 
-	if err := db.PopulateByID(task); err != nil {
+	if err := db.PopulateByID(tsk); err != nil {
 		t.Fatal(err)
 	}
 
-	t.Logf("Here's the task:\n%+v", task)
+	t.Logf("Here's the task:\n%+v", tsk)
 
-	if !task.InProgress() {
+	if !task.InProgress(tsk) {
 		t.Fatalf("Expected the task to in progress")
 	}
 
@@ -734,13 +736,13 @@ func TestTodoStartStop(t *testing.T) {
 
 	t.Log("Checking that the task was stopped")
 
-	if err := db.PopulateByID(task); err != nil {
+	if err := db.PopulateByID(tsk); err != nil {
 		t.Fatal(err)
 	}
 
-	t.Logf("Here's the task:\n%+v", task)
+	t.Logf("Here's the task:\n%+v", tsk)
 
-	if task.InProgress() {
+	if task.InProgress(tsk) {
 		t.Fatalf("Expected the task to _not_ in progress")
 	}
 }
@@ -799,7 +801,7 @@ func TestTodoTag(t *testing.T) {
 	}
 
 	tagName := "tag name"
-	tag, err := models.TagByName(db, tagName, user)
+	tg, err := tag.ByName(db, user, tag.Name(tagName))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -850,14 +852,66 @@ func TestTodoTag(t *testing.T) {
 	}
 
 	t.Logf("Here's the task:\n%+v", task)
-	t.Logf("Here's the tag:\n%+v", tag)
+	t.Logf("Here's the tag:\n%+v", tg)
 
 	if len(task.TagsIds) != 1 {
 		t.Fatal("Expected the task to have one tag")
 	}
 
-	if task.TagsIds[0] != tag.Id {
+	if task.TagsIds[0] != tg.Id {
 		t.Fatal("Expected the task to have the tag")
+	}
+}
+
+// --- }}}
+
+// --- `elos todo today` {{{
+func TestTodoToday(t *testing.T) {
+	ui, db, user, c := newMockTodoCommand(t)
+
+	// load a task into the db
+	tsk := newTestTask(t, db, user)
+	taskName := "Take out the trash"
+	tsk.Name = taskName
+	task.StopAndComplete(tsk)
+	if err := db.Save(tsk); err != nil {
+		t.Fatal(err)
+	}
+
+	tsk2 := newTestTask(t, db, user)
+	task2Name := "shouldn't show up"
+	tsk2.Name = task2Name
+	tsk2.CompletedAt = time.Now().Add(-48 * time.Hour)
+	if err := db.Save(tsk2); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("running: `elos todo today`")
+	code := c.Run([]string{"today"})
+	t.Log("command 'today' terminated")
+
+	errput := ui.ErrorWriter.String()
+	output := ui.OutputWriter.String()
+	t.Logf("Error output:\n %s", errput)
+	t.Logf("Output:\n %s", output)
+
+	// verify there were no errors
+	if errput != "" {
+		t.Fatalf("Expected no error output, got: %s", errput)
+	}
+
+	// verify success
+	if code != success {
+		t.Fatalf("Expected successful exit code along with empty error output.")
+	}
+
+	// verify some of the output
+	if !strings.Contains(output, taskName) {
+		t.Fatalf("Output should have contained a task we completed today: %s", taskName)
+	}
+
+	if strings.Contains(output, task2Name) {
+		t.Fatalf("Output should not have contained: '%s', the name of a task completed 2 days ago", task2Name)
 	}
 }
 

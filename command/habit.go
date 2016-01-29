@@ -7,6 +7,7 @@ import (
 
 	"github.com/elos/data"
 	"github.com/elos/models"
+	"github.com/elos/models/habit"
 	"github.com/mitchellh/cli"
 )
 
@@ -248,12 +249,12 @@ func (c *HabitCommand) promptNewHabit() (*models.Habit, int) {
 }
 
 func (c *HabitCommand) runCheckin(args []string) int {
-	habit, index := c.promptSelectHabit()
+	hbt, index := c.promptSelectHabit()
 	if index < 0 {
 		return failure
 	}
 
-	if _, err := habit.Checkin(c.DB, "", time.Now()); err != nil {
+	if _, err := habit.CheckinFor(c.DB, hbt, "", time.Now()); err != nil {
 		c.errorf("while checking in: %s", err)
 		return failure
 	}
@@ -339,7 +340,7 @@ func (c *HabitCommand) runToday(args []string) int {
 	c.printf("Here is today's lineup:")
 	var complete string
 	for _, h := range c.habits {
-		if checkedIn, err := h.CheckedInOn(c.DB, time.Now()); err != nil {
+		if checkedIn, err := habit.DidCheckinOn(c.DB, h, time.Now()); err != nil {
 			c.errorf("error checking if habit is complete: %s", err)
 			return failure
 		} else if checkedIn {
