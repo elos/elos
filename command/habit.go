@@ -303,7 +303,7 @@ func (c *HabitCommand) runHistory(args []string) int {
 	}
 
 	for _, event := range checkins {
-		c.printf("Checkin on %s", event.Time.Format("Mon Jan 2 15:04"))
+		c.printf("Checkin on %s", event.Time.Local().Format("Mon Jan 2 15:04"))
 
 		if n, err := event.Note(c.DB); err != nil {
 			c.errorf("error retrieving event's note: %s", err)

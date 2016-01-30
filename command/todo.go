@@ -99,51 +99,50 @@ func (c *TodoCommand) Run(args []string) int {
 		return i
 	}
 
-	switch len(args) {
-	case 1:
-		switch args[0] {
-		case "co":
-		case "complete":
-			return c.runComplete()
-		case "cu":
-		case "current":
-			return c.runCurrent()
-		case "d":
-		case "delete":
-			return c.runDelete()
-		case "e":
-		case "edit":
-			return c.runEdit()
-		case "g":
-		case "goal":
-			return c.runGoal()
-		case "gs":
-		case "goals":
-			return c.runGoals()
-		case "l":
-		case "list":
-			return c.runList()
-		case "n":
-		case "new":
-			return c.runNew()
-		case "sta":
-		case "start":
-			return c.runStart()
-		case "sto":
-		case "stop":
-			return c.runStop()
-		case "su":
-		case "suggest":
-			return c.runSuggest()
-		case "ta":
-		case "tag":
-			return c.runTag()
-		case "to":
-		case "today":
-			return c.runToday()
-		default:
-			c.UI.Output(c.Help())
+	switch args[0] {
+	case "co":
+	case "complete":
+		return c.runComplete()
+	case "cu":
+	case "current":
+		return c.runCurrent()
+	case "d":
+	case "delete":
+		return c.runDelete()
+	case "e":
+	case "edit":
+		return c.runEdit()
+	case "g":
+	case "goal":
+		return c.runGoal()
+	case "gs":
+	case "goals":
+		return c.runGoals()
+	case "l":
+	case "list":
+		return c.runList()
+	case "n":
+	case "new":
+		return c.runNew()
+	case "sta":
+	case "start":
+		return c.runStart()
+	case "sto":
+	case "stop":
+		return c.runStop()
+	case "su":
+	case "suggest":
+		return c.runSuggest()
+	case "ta":
+	case "tag":
+		if len(args) == 2 && args[1] == "-r" {
+			return c.runRemoveTag()
 		}
+
+		return c.runTag()
+	case "to":
+	case "today":
+		return c.runToday()
 	default:
 		c.UI.Output(c.Help())
 	}
@@ -534,6 +533,7 @@ func (c *TodoCommand) runTag() int {
 		return failure
 	}
 
+	c.UI.Output("Which tag to add?")
 	tag := c.promptSelectTag()
 	if tag == nil {
 		return failure
@@ -545,6 +545,35 @@ func (c *TodoCommand) runTag() int {
 		c.errorf("saving task")
 		return failure
 	}
+
+	c.UI.Output(fmt.Sprintf("Added '%s' to task", tag.Name))
+
+	return success
+}
+
+// runRemoveTag runs the 'tag' subcommand with the -r flag,
+// which removes a tag from a task
+func (c *TodoCommand) runRemoveTag() int {
+	c.UI.Output("Select which task to remove a tag from")
+	task, index := c.promptSelectTask()
+	if index < 0 {
+		return failure
+	}
+
+	c.UI.Output("Which tag to remove?")
+	tag := c.promptSelectTagFromTask(task)
+	if tag == nil {
+		return failure
+	}
+
+	task.ExcludeTag(tag)
+
+	if err := c.DB.Save(task); err != nil {
+		c.errorf("saving task")
+		return failure
+	}
+
+	c.UI.Output(fmt.Sprintf("Removed '%s' from task", tag.Name))
 
 	return success
 }
@@ -604,10 +633,10 @@ PrintLoop:
 		// Deadline
 		deadline := ""
 		if !t.Deadline.Equal(*new(time.Time)) {
-			deadline = fmt.Sprintf("(%s)", t.Deadline.Format("Mon Jan 2 15:04"))
+			deadline = fmt.Sprintf("(%s)", t.Deadline.Local().Format("Mon Jan 2 15:04"))
 		}
 
-		c.UI.Output(fmt.Sprintf("%d)%s%s %s\n\tSalience:%f", i, tagList, t.Name, deadline, task.Salience(t)))
+		c.UI.Output(fmt.Sprintf("%d)%s%s %s\n\tSalience:%f; Time Spent:%s", i, tagList, t.Name, deadline, task.Salience(t), task.TimeSpent(t)))
 	}
 }
 
@@ -762,6 +791,37 @@ func (c *TodoCommand) promptSelectTag() *models.Tag {
 		indexOfCurrent int
 		err            error
 	)
+
+	if indexOfCurrent, err = intInput(c.UI, "Which number?"); err != nil {
+		c.errorf("input error: %s", err)
+		return nil
+	}
+
+	if indexOfCurrent < 0 || indexOfCurrent > len(c.tasks)-1 {
+		c.UI.Warn(fmt.Sprintf("%d is not a valid index. Need a # in (0,...,%d)", indexOfCurrent, len(c.tags)-1))
+		return nil
+	}
+
+	return tags[indexOfCurrent]
+}
+
+func (c *TodoCommand) promptSelectTagFromTask(t *models.Task) *models.Tag {
+	tags, err := t.Tags(c.DB)
+	if err != nil {
+		c.errorf("data Error: %s", err)
+		return nil
+	}
+
+	if len(tags) == 0 {
+		c.UI.Warn("That task has no tags")
+		return nil
+	}
+
+	sort.Sort(tag.ByName(tags))
+
+	c.printTagList(tags)
+
+	var indexOfCurrent int
 
 	if indexOfCurrent, err = intInput(c.UI, "Which number?"); err != nil {
 		c.errorf("input error: %s", err)

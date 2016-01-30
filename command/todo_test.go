@@ -868,7 +868,6 @@ func TestTodoTag(t *testing.T) {
 // TestTodoTag tests the `elos todo tag -r` subcommand with the
 // "r" flag
 func TestTodoTagRemove(t *testing.T) {
-	t.Skip()
 	ui, db, user, c := newMockTodoCommand(t)
 
 	// load a task into the db
@@ -899,7 +898,7 @@ func TestTodoTagRemove(t *testing.T) {
 	ui.InputReader = bytes.NewBufferString(input)
 
 	t.Log("running: `elos todo tag -r`")
-	code := c.Run([]string{"tag -r"})
+	code := c.Run([]string{"tag", "-r"})
 	t.Log("command 'tag -r' terminated")
 
 	errput := ui.ErrorWriter.String()
