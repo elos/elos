@@ -20,10 +20,31 @@ func yesNo(ui cli.Ui, text string) (bool, error) {
 
 // stringInput requests textual input
 //
-// User this where you need to take a string value, or where
+// Use this where you need to take a string value, or where
 // you would want to parse a string input yourself
 func stringInput(ui cli.Ui, text string) (string, error) {
 	return ui.Ask(text + " [string]:")
+}
+
+// stringListInput requests a list of a comma delimitted strings
+//
+// Use this where you need to take a list of string values,
+// such as the case where you want to take a list of strings
+//
+// It parses the strings based on commas, or double commas,
+// if the string input needs to include commas
+func stringListInput(ui cli.Ui, text string) ([]string, error) {
+	in, err := ui.Ask(text + " [list,of,strings]")
+	if err != nil {
+		return nil, err
+	}
+
+	// if the user used double commas, single commas will be ignored
+	if strings.Contains(in, ",,") {
+		return strings.Split(in, ",,"), nil
+	}
+
+	return strings.Split(in, ","), nil
 }
 
 // boolInput requests a boolean input
