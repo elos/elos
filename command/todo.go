@@ -3,6 +3,7 @@ package command
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -740,7 +741,7 @@ func (c *TodoCommand) printTagList(tags []*models.Tag) {
 	}
 }
 
-func (c *TodoCommand) promptSelectTag() (tag *models.Tag) {
+func (c *TodoCommand) promptSelectTag() *models.Tag {
 	if len(c.tags) == 0 {
 		c.UI.Warn("You do not have any tags")
 		return nil
@@ -752,6 +753,8 @@ func (c *TodoCommand) promptSelectTag() (tag *models.Tag) {
 		tags[count] = t
 		count++
 	}
+
+	sort.Sort(tag.ByName(tags))
 
 	c.printTagList(tags)
 
