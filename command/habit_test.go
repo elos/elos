@@ -17,7 +17,7 @@ import (
 // --- Testing Helpers {{{
 
 func newTestHabit(t *testing.T, db data.DB, u *models.User, name string) *models.Habit {
-	h, err := models.CreateHabit(db, u, name)
+	h, err := habit.Create(db, u, name)
 	if err != nil {
 		t.Fatalf("newTestHabit Error: %s", err)
 	}

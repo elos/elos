@@ -12,8 +12,8 @@ import (
 	"github.com/elos/elos/command"
 	"github.com/elos/gaia"
 	"github.com/elos/gaia/services"
-	"github.com/elos/models"
 	"github.com/elos/models/access"
+	"github.com/elos/models/user"
 	"github.com/mitchellh/cli"
 	"golang.org/x/net/context"
 )
@@ -43,7 +43,7 @@ func TestSetupCurrentUser(t *testing.T) {
 	db := mem.NewDB()
 
 	t.Log("Creating test user")
-	u, _, err := models.CreateUser(db, "public", "private")
+	u, _, err := user.Create(db, "public", "private")
 	if err != nil {
 		t.Fatal(err)
 	}

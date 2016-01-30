@@ -239,7 +239,7 @@ func (c *HabitCommand) promptNewHabit() (*models.Habit, int) {
 		return nil, failure
 	}
 
-	h, err := models.CreateHabit(c.DB, u, name)
+	h, err := habit.Create(c.DB, u, name)
 	if err != nil {
 		c.errorf("error creating habit: %s", err)
 		return nil, failure
