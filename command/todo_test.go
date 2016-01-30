@@ -790,6 +790,8 @@ func TestTodoSuggest(t *testing.T) {
 // --- }}}
 
 // --- `elos todo tag` {{{
+
+// TestTodoTag tests the `elos todo tag` subcommand
 func TestTodoTag(t *testing.T) {
 	ui, db, user, c := newMockTodoCommand(t)
 
@@ -860,6 +862,85 @@ func TestTodoTag(t *testing.T) {
 
 	if task.TagsIds[0] != tg.Id {
 		t.Fatal("Expected the task to have the tag")
+	}
+}
+
+// TestTodoTag tests the `elos todo tag -r` subcommand with the
+// "r" flag
+func TestTodoTagRemove(t *testing.T) {
+	t.Skip()
+	ui, db, user, c := newMockTodoCommand(t)
+
+	// load a task into the db
+	task := newTestTask(t, db, user)
+	task.Name = "Take out the trash"
+	if err := db.Save(task); err != nil {
+		t.Fatal(err)
+	}
+
+	tagName := "tag name"
+	tg, err := tag.ForName(db, user, tag.Name(tagName))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// now it's tagged
+	task.IncludeTag(tg)
+
+	if err := db.Save(tg); err != nil {
+		t.Fatal(err)
+	}
+
+	// load input
+	input := strings.Join([]string{
+		"0", // selecting the task to remove the tag from
+		"0", // selecting the tag
+	}, "\n")
+	ui.InputReader = bytes.NewBufferString(input)
+
+	t.Log("running: `elos todo tag -r`")
+	code := c.Run([]string{"tag -r"})
+	t.Log("command 'tag -r' terminated")
+
+	errput := ui.ErrorWriter.String()
+	output := ui.OutputWriter.String()
+	t.Logf("Error output:\n %s", errput)
+	t.Logf("Output:\n %s", output)
+
+	// verify there were no errors
+	if errput != "" {
+		t.Fatalf("Expected no error output, got: %s", errput)
+	}
+
+	// verify success
+	if code != success {
+		t.Fatalf("Expected successful exit code along with empty error output.")
+	}
+
+	// verify some of the output
+	if !strings.Contains(output, "0)") {
+		t.Fatalf("Output should have contained a 0) for listing tasks")
+	}
+
+	if !strings.Contains(output, "Which number?") {
+		t.Fatalf("Output should have asked for a task number")
+	}
+
+	if !strings.Contains(output, tagName) {
+		t.Fatalf("Output should have included the tag's name")
+	}
+
+	t.Log("Checking that the task is no longer tagged")
+
+	if err := db.PopulateByID(task); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Here's the task:\n%+v", task)
+	t.Logf("Here's the tag:\n%+v", tg)
+
+	if len(task.TagsIds) != 0 {
+		t.Fatal("Expected the task to have no tag")
 	}
 }
 
