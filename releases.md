@@ -9,3 +9,4 @@ v0.3 changelog
  - Ammend confusion regarding time zones, UTC was preserved across local and server,
     however the UTC times returned from the server needed to be turned back into local time,
     and printed as such
+ - remove current time prompt

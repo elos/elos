@@ -104,14 +104,7 @@ func intInput(ui cli.Ui, text string) (int, error) {
 // but if you care also abou the calendrical components, such as
 // the year, month and day, use 'dateInput'.
 func timeInput(ui cli.Ui, text string) (t time.Time, err error) {
-
 	ui.Output(text + " [time]")
-	if useNow, err := yesNo(ui, "Would you like to use the current time?"); err != nil {
-		return *new(time.Time), err
-	} else if useNow {
-		now := time.Now()
-		return time.Date(0, 0, 0, now.Hour(), now.Minute(), 0, 0, time.Local), nil
-	}
 
 	var (
 		inputErr  error
@@ -136,11 +129,6 @@ func timeInput(ui cli.Ui, text string) (t time.Time, err error) {
 // If you only need a time, use 'timeInput'.
 func dateInput(ui cli.Ui, text string) (time.Time, error) {
 	ui.Output(text + " [date]")
-	if useNow, err := yesNo(ui, "Would you like to use the current time?"); err != nil {
-		return *new(time.Time), err
-	} else if useNow {
-		return time.Now(), nil
-	}
 
 	var (
 		inputErr                    error

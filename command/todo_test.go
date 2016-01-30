@@ -542,7 +542,6 @@ func TestTodoNew(t *testing.T) {
 	input := strings.Join([]string{
 		"top",    // Name
 		"y",      // Does it have a deadline
-		"n",      // use current time?
 		"2020",   // year
 		"1",      // month
 		"1",      // date
