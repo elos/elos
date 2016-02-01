@@ -538,7 +538,23 @@ func (c *TodoCommand) runStart() int {
 // runStop runs the 'stop' command, which stops a task specified
 // by the user.
 func (c *TodoCommand) runStop() int {
-	tsk, index := c.promptSelectTask()
+	anyInProgress := false
+	for _, t := range c.tasks {
+		if task.InProgress(t) {
+			anyInProgress = true
+			break
+		}
+	}
+
+	if !anyInProgress {
+		c.UI.Output("No tasks in progress")
+		return success
+	}
+
+	tsk, index := c.promptSelectTask(func(t *models.Task) bool {
+		return task.InProgress(t)
+	})
+
 	if index < 0 {
 		return failure
 	}
@@ -697,13 +713,13 @@ PrintLoop:
 // in either case the value of the first return argument is undefined.
 //
 // Use promptSelectTask for todo subcommands which operate on a task.
-func (c *TodoCommand) promptSelectTask() (*models.Task, int) {
+func (c *TodoCommand) promptSelectTask(selectors ...func(*models.Task) bool) (*models.Task, int) {
 	if len(c.tasks) == 0 {
 		c.UI.Warn("You do not have any tasks")
 		return nil, -1
 	}
 
-	c.printTaskList()
+	c.printTaskList(selectors...)
 
 	var (
 		indexOfCurrent int

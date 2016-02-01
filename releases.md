@@ -12,3 +12,4 @@ v0.3 changelog
  - remove current time prompt
  - fix time zone bug in `elos todo today`
  - add `elos todo fix` for updating deadlines of all out of date tasks
+ - only print tasks in progress as a result of `elos todo stop`
