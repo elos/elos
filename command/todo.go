@@ -593,7 +593,7 @@ func (c *TodoCommand) runToday() int {
 	t := models.NewTask()
 	i := 0
 	for iter.Next(t) {
-		if task.IsComplete(t) && models.DayEquivalent(t.CompletedAt, time.Now()) {
+		if task.IsComplete(t) && models.DayEquivalent(t.CompletedAt.Local(), time.Now()) {
 			c.UI.Output(fmt.Sprintf("%d) %s", i, t.Name))
 			i++
 		}

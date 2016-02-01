@@ -10,3 +10,4 @@ v0.3 changelog
     however the UTC times returned from the server needed to be turned back into local time,
     and printed as such
  - remove current time prompt
+ - fix time zone bug in `elos todo today`
