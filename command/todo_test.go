@@ -583,6 +583,62 @@ func TestTodoList(t *testing.T) {
 
 // --- }}}
 
+// --- `elos todo list -t` {{{
+
+// TestTodoListTag test the `list -t` subcommand
+func TestTodoListTag(t *testing.T) {
+	ui, db, user, c := newMockTodoCommand(t)
+
+	task1 := newTestTask(t, db, user)
+	task2 := newTestTask(t, db, user)
+	task1.Name = "task1"
+	if err := db.Save(task1); err != nil {
+		t.Fatal(err)
+	}
+	task2.Name = "task2"
+	if err := db.Save(task2); err != nil {
+		t.Fatal(err)
+	}
+
+	tagName := "TAG NAME"
+	_, err := tag.Task(db, task1, tagName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ui.InputReader = bytes.NewBufferString("0\n") // select first and only tag
+
+	t.Log("running: `elos todo list -t`")
+	code := c.Run([]string{"list", "-t"})
+	t.Log("command 'list -t' terminated")
+
+	errput := ui.ErrorWriter.String()
+	output := ui.OutputWriter.String()
+	t.Logf("Error output:\n %s", errput)
+	t.Logf("Output:\n %s", output)
+
+	// verify there were no errors
+	if errput != "" {
+		t.Fatalf("Expected no error output, got: %s", errput)
+	}
+
+	// verify success
+	if code != success {
+		t.Fatalf("Expected successful exit code along with empty error output.")
+	}
+
+	// verify some of the output
+	if !strings.Contains(output, "0)") {
+		t.Fatalf("Output should have contained a 0) for listing tasks")
+	}
+
+	if !strings.Contains(output, "task1") {
+		t.Fatalf("Output should have contained 'task1' the name of the first task")
+	}
+}
+
+// --- }}}
+
 // --- `elos todo new` {{{
 
 // TestTodoNew tests the `new` subcommand

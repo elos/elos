@@ -71,12 +71,12 @@ Subcommands:
 	fix		set new deadlines for passed tasks
 	goal		set a task as a goal
 	goals		list task goals
-	list		list all your tasks
+	list (-t)	list all your tasks (by tag)
 	new		create a new task
 	start		start a task
 	stop		stop a task
 	suggest		have elos suggest a task
-	tag		tag a task
+	tag (-r)	tag a task (remove)
 	today		list the tasks you completed today
 `
 	return strings.TrimSpace(helpText)
@@ -124,6 +124,10 @@ func (c *TodoCommand) Run(args []string) int {
 		return c.runGoals()
 	case "l":
 	case "list":
+		if len(args) == 2 && args[1] == "-t" {
+			return c.runListTag()
+		}
+
 		return c.runList()
 	case "n":
 	case "new":
@@ -495,6 +499,33 @@ func (c *TodoCommand) runGoals() int {
 func (c *TodoCommand) runList() int {
 	c.UI.Output("Todos:")
 	c.printTaskList()
+	return success
+}
+
+// runListTag runs the 'list -t' subcommand. It prints a list of the
+// tasks cached in c.tasks according to the specified tag.
+func (c *TodoCommand) runListTag() int {
+	tg := c.promptSelectTag()
+	if tg == nil {
+		return success
+	}
+
+	tasks, err := tag.TasksFor(c.DB, tg)
+	if err != nil {
+		c.errorf("retrieving tasks: %s", err)
+		return failure
+	}
+
+	ids := make(map[data.ID]bool)
+	for _, t := range tasks {
+		ids[t.ID()] = true
+	}
+
+	c.UI.Output(fmt.Sprintf("%s Tasks:", tg.Name))
+	c.printTaskList(func(t *models.Task) bool {
+		_, ok := ids[t.ID()]
+		return ok
+	})
 	return success
 }
 

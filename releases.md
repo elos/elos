@@ -16,3 +16,4 @@ v0.3 changelog
  - add time worked as output of `elos todo complete`
  - have elos todo suggest print the tags of the task also
  - have elos todo suggest prompt to start the task
+ - allow `elos todo list -t` to list tasks only by a particular tag
