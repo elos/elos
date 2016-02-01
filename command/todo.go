@@ -68,6 +68,7 @@ Subcommands:
 	current		list current tasks
 	delete		delete a task
 	edit		edit a task
+	fix		set new deadlines for passed tasks
 	goal		set a task as a goal
 	goals		list task goals
 	list		list all your tasks
@@ -112,6 +113,9 @@ func (c *TodoCommand) Run(args []string) int {
 	case "e":
 	case "edit":
 		return c.runEdit()
+	case "f":
+	case "fix":
+		return c.runFix()
 	case "g":
 	case "goal":
 		return c.runGoal()
@@ -370,6 +374,52 @@ func (c *TodoCommand) runEdit() int {
 	}
 
 	c.UI.Info("Task updated")
+
+	return success
+}
+
+// runFix executes the "elos todo fix" command.
+//
+// Fix goes through the tasks whose deadline has passed and
+// prompts the user to set a new deadline
+func (c *TodoCommand) runFix() int {
+	var inputError error
+
+	neededFix := false
+
+	// Only need the incomplete tasks, which are in c.tasks
+	for i, t := range c.tasks {
+		// If the deadline is in the future
+		if t.Deadline.IsZero() || t.Deadline.Local().After(time.Now()) {
+			continue
+		}
+
+		neededFix = true
+
+		c.UI.Output(fmt.Sprintf("%d) %s %s", i, t.Name, t.Deadline.Format("Mon Jan 2 15:04")))
+
+	fix:
+		if t.Deadline, inputError = dateInput(c.UI, "New Deadline"); inputError != nil {
+			c.errorf("(subcommand fix) Input Error: %s", inputError)
+			return failure
+		}
+
+		if t.Deadline.Local().Before(time.Now()) {
+			c.UI.Output(fmt.Sprintf("Shoot, %s is still in the past, try again?", t.Deadline.Format("Mon Jan 2 15:04")))
+			goto fix
+		}
+
+		if err := c.DB.Save(t); err != nil {
+			c.errorf("(subcommand fix) Error: saving task: %s", err)
+			return failure
+		} else {
+			c.UI.Output(fmt.Sprintf("Deadline changed to %s", t.Deadline.Local().Format("Mon Jan 2 15:04")))
+		}
+	}
+
+	if !neededFix {
+		c.UI.Output("No tasks out of date")
+	}
 
 	return success
 }

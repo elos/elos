@@ -324,6 +324,73 @@ func TestTodoEdit(t *testing.T) {
 
 // --- }}}
 
+// --- `elos todo fix` {{{
+
+// TestTodoFix tests the `fix` subcommand
+func TestTodoFix(t *testing.T) {
+	ui, db, user, c := newMockTodoCommand(t)
+
+	// load a task into the db
+	task := newTestTask(t, db, user)
+	task.Name = "Take out the trash"
+	task.Deadline = time.Now().Add(-36 * time.Hour)
+	if err := db.Save(task); err != nil {
+		t.Fatal(err)
+	}
+
+	// load input
+	input := strings.Join([]string{
+		"2020", // year
+		"1",    // month
+		"1",    // day
+		"12",   // hour
+		"0",    // minute
+	}, "\n")
+	ui.InputReader = bytes.NewBufferString(input)
+
+	t.Log("running: `elos todo fix`")
+	code := c.Run([]string{"fix"})
+	t.Log("command 'fix' terminated")
+
+	errput := ui.ErrorWriter.String()
+	output := ui.OutputWriter.String()
+	t.Logf("Error output:\n %s", errput)
+	t.Logf("Output:\n %s", output)
+
+	// verify there were no errors
+	if errput != "" {
+		t.Fatalf("Expected no error output, got: %s", errput)
+	}
+
+	// verify success
+	if code != success {
+		t.Fatalf("Expected successful exit code along with empty error output.")
+	}
+
+	// verify some of the output
+	if !strings.Contains(output, task.Name) {
+		t.Fatalf("Output should have contained a the out of date task's name")
+	}
+
+	if !strings.Contains(output, "New Deadline") {
+		t.Fatalf("Output should have asked for a new deadline")
+	}
+
+	t.Log("Checking that the task's deadline was changed")
+
+	if err := db.PopulateByID(task); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Here's the task:\n%+v", task)
+
+	if !task.Deadline.After(time.Now()) {
+		t.Fatalf("Expected the task's deadline to be after now")
+	}
+}
+
+// --- }}}
+
 // --- `elos todo goal` {{{
 
 // TestTodoGoal tests the `goal` subcommand
