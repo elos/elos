@@ -822,11 +822,18 @@ func TestTodoSuggest(t *testing.T) {
 	ui, db, user, c := newMockTodoCommand(t)
 
 	// load a task into the db
-	task := newTestTask(t, db, user)
-	task.Name = "SUGGESTED"
-	if err := db.Save(task); err != nil {
+	tsk := newTestTask(t, db, user)
+	tsk.Name = "SUGGESTED"
+	if err := db.Save(tsk); err != nil {
 		t.Fatal(err)
 	}
+
+	tagName := "random tag"
+	if _, err := tag.Task(db, tsk, tagName); err != nil {
+		t.Fatal(err)
+	}
+
+	ui.InputReader = bytes.NewBufferString("y\n") // yes, start the task
 
 	t.Log("running: `elos todo suggest`")
 	code := c.Run([]string{"suggest"})
@@ -850,6 +857,24 @@ func TestTodoSuggest(t *testing.T) {
 	// verify output
 	if !strings.Contains(output, "SUGGESTED") {
 		t.Fatal("Expected output to containe 'SUGGESTED', the name of the only task")
+	}
+
+	if !strings.Contains(output, tagName) {
+		t.Fatal("Expected output to contain the task's tag's name")
+	}
+
+	if !strings.Contains(strings.ToLower(output), "start") {
+		t.Fatal("Should ask if we want to start the task")
+	}
+
+	t.Log("Reloading the task")
+	if err := db.PopulateByID(tsk); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Task loaded:\n%+v", tsk)
+
+	if !task.InProgress(tsk) {
+		t.Fatal("The task should be in progress now, cause we indicated we wanted to start it")
 	}
 }
 

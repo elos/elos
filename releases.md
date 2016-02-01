@@ -14,3 +14,5 @@ v0.3 changelog
  - add `elos todo fix` for updating deadlines of all out of date tasks
  - only print tasks in progress as a result of `elos todo stop`
  - add time worked as output of `elos todo complete`
+ - have elos todo suggest print the tags of the task also
+ - have elos todo suggest prompt to start the task

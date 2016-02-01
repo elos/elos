@@ -588,7 +588,35 @@ func (c *TodoCommand) runSuggest() int {
 		return success
 	}
 
-	c.UI.Output(task.NewGraph(c.tasks).Suggest().Name)
+	suggested := task.NewGraph(c.tasks).Suggest()
+
+	tagNames := ""
+	tags, err := suggested.Tags(c.DB)
+	if err != nil {
+		c.errorf("loading tags: %s", err)
+	}
+	for _, t := range tags {
+		tagNames += fmt.Sprintf("[%s]", t.Name)
+	}
+	if tagNames != "" {
+		tagNames += ": "
+	}
+	c.UI.Output(fmt.Sprintf("%s %s", tagNames, suggested.Name))
+
+	if b, err := yesNo(c.UI, fmt.Sprintf("Start %s?", suggested.Name)); err != nil {
+		c.errorf("Input Error: %s", err)
+		return failure
+	} else if b {
+		task.Start(suggested)
+
+		if err := c.DB.Save(suggested); err != nil {
+			c.errorf("saving task: %s", err)
+			return failure
+		} else {
+			c.UI.Output(fmt.Sprintf("Started '%s'", suggested.Name))
+		}
+	}
+
 	return success
 }
 
