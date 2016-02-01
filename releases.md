@@ -13,3 +13,4 @@ v0.3 changelog
  - fix time zone bug in `elos todo today`
  - add `elos todo fix` for updating deadlines of all out of date tasks
  - only print tasks in progress as a result of `elos todo stop`
+ - add time worked as output of `elos todo complete`

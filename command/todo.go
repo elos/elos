@@ -277,6 +277,7 @@ func (c *TodoCommand) runComplete() int {
 	c.removeTask(index)
 
 	c.UI.Info(fmt.Sprintf("Completed '%s'", tsk.Name))
+	c.UI.Info(fmt.Sprintf("Worked for %s total", task.TimeSpent(tsk)))
 
 	return success
 }
