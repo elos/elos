@@ -217,6 +217,8 @@ func (c *TodoCommand) init() int {
 
 	c.tasks = tasks
 
+	sort.Sort(task.BySalience(c.tasks))
+
 	// Load the tags
 	c.tags = make(map[data.ID]*models.Tag)
 
@@ -720,7 +722,7 @@ func (c *TodoCommand) runToday() int {
 	i := 0
 	for iter.Next(t) {
 		if task.IsComplete(t) && models.DayEquivalent(t.CompletedAt.Local(), time.Now()) {
-			c.UI.Output(fmt.Sprintf("%d) %s", i, t.Name))
+			c.UI.Output(fmt.Sprintf("%d) %s", i, String(t, c.tags)))
 			i++
 		}
 	}
@@ -960,4 +962,19 @@ func (c *TodoCommand) promptSelectTagFromTask(t *models.Task) *models.Tag {
 	}
 
 	return tags[indexOfCurrent]
+}
+
+func String(t *models.Task, tags map[data.ID]*models.Tag) string {
+	// Tags
+	tagList := ""
+	for _, id := range t.TagsIds {
+		tagList += fmt.Sprintf(" [%s]", tags[data.ID(id)].Name)
+	}
+	if tagList != "" {
+		tagList += ": "
+	} else {
+		tagList = " " + tagList
+	}
+
+	return tagList + t.Name
 }

@@ -2,7 +2,6 @@ package command
 
 import (
 	"bytes"
-	"log"
 	"strings"
 	"testing"
 	"time"
@@ -450,14 +449,14 @@ func TestTodoGoal(t *testing.T) {
 	// load tag
 	tg, err := tag.ForName(db, user, tag.Goal)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	t.Logf("GOALS tag:\n%+v", tg)
 
 	tasks, err := tag.TasksFor(db, tg)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	if len(tasks) != 1 {
@@ -492,7 +491,7 @@ func TestTodoGoals(t *testing.T) {
 	task.IncludeTag(tg)
 
 	if err := db.Save(task); err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	t.Log("running: `elos todo goals`")
