@@ -18,3 +18,4 @@ v0.3 changelog
  - have elos todo suggest prompt to start the task
  - allow `elos todo list -t` to list tasks only by a particular tag
  - add better task printing across all subcommands
+ - add `elos stream` command

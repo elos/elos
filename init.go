@@ -85,8 +85,8 @@ func init() {
 				DB:     db,
 			}, databaseError
 		},
-		"task": func() (cli.Command, error) {
-			return &command.TodoCommand{
+		"stream": func() (cli.Command, error) {
+			return &command.StreamCommand{
 				UI:     UI,
 				UserID: Configuration.UserID,
 				DB:     db,

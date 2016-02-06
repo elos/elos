@@ -2,8 +2,8 @@ package command
 
 import (
 	"fmt"
-	"log"
 	"strings"
+	"time"
 
 	"github.com/elos/data"
 	"github.com/elos/models"
@@ -63,19 +63,65 @@ func (c *StreamCommand) Run(args []string) int {
 	// asumption that this is a gaia db, which means that
 	// the only changes are event changes de facto, need to
 	// figure out how to transfer kind information over the wire
-	changes := c.DB.Changes()
+	changes := *c.DB.Changes()
 
-	log.Print("waiting for changes")
-	for change := range *changes {
-		log.Print("CHANGE")
+	for {
+		select {
+		case change, ok := <-changes:
+			if !ok {
+				c.UI.Output("Connection closed by server")
+				return success
+			}
 
-		if change.ChangeKind != data.Update {
-			continue
+			if change.ChangeKind != data.Update {
+				continue
+			}
+
+			if change.Record.Kind() != models.EventKind {
+				continue
+			}
+
+			e := change.Record.(*models.Event)
+
+			tags, err := e.Tags(c.DB)
+			if err != nil {
+				// TODO errorf
+				return failure
+			}
+
+			tagString := ""
+			for _, t := range tags {
+				tagString += fmt.Sprintf(" [%s]", t.Name)
+			}
+			if tagString == "" {
+				tagString = " "
+			} else {
+				tagString += ": "
+			}
+
+			loc, err := e.Location(c.DB)
+			if err != nil && err != models.ErrEmptyLink {
+				// TODO errorf
+				return failure
+			}
+
+			locString := ""
+			if loc != nil {
+				locString = fmt.Sprintf("(lat: %f, lon: %f, alt: %f)", loc.Latitude, loc.Longitude, loc.Altitude)
+			}
+			c.UI.Output(fmt.Sprintf("%s%s %s", tagString, e.Name, locString))
+
+			n, err := e.Note(c.DB)
+			if err != nil && err != models.ErrEmptyLink {
+				// TODO errorf
+				return failure
+			}
+			if n != nil {
+				c.UI.Output(fmt.Sprintf("\tNote: %s", n.Text))
+			}
+		case <-time.After(5 * time.Second):
+			c.UI.Output("5 second heartbeat")
 		}
-
-		event := change.Record.(*models.Event)
-
-		c.UI.Output(event.Name)
 	}
 
 	return success

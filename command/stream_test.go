@@ -1,7 +1,6 @@
 package command
 
 import (
-	"log"
 	"strings"
 	"testing"
 	"time"
@@ -28,7 +27,6 @@ func newMockStreamCommand(t *testing.T) (*cli.MockUi, data.DB, *models.User, *St
 
 // TestStream test the `stream" command
 func TestStream(t *testing.T) {
-	t.Skip()
 	ui, db, user, c := newMockStreamCommand(t)
 
 	// in another go routine start streaming
@@ -47,12 +45,13 @@ func TestStream(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Millisecond) // give the go routine running command time to read from channel
 
 	// wait for that change to go through the pipeline
 	select {
-	case <-*changes:
-		t.Log("change recieved")
+	case change := <-*changes:
+		t.Logf("Change Recieved:\n%+v", change)
+		t.Logf("Record recieved:\n%+v", change.Record)
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("timeout waiting for change")
 	}
@@ -60,8 +59,6 @@ func TestStream(t *testing.T) {
 	// now check outputs
 	errput := ui.ErrorWriter.String()
 	output := ui.OutputWriter.String()
-	log.Print(errput)
-	log.Print(output)
 	t.Logf("Error output:\n %s", errput)
 	t.Logf("Output:\n %s", output)
 
