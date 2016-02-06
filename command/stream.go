@@ -30,7 +30,7 @@ type StreamCommand struct {
 // Synopsis is a one-line, short summary of the 'stream' command.
 // It is guaranteed to be at most 50 characters.
 func (c *StreamCommand) Synopsis() string {
-	return "Stream you events"
+	return "Stream your events"
 }
 
 // Help is the long-form help text that includes command-line
@@ -39,7 +39,7 @@ func (c *StreamCommand) Synopsis() string {
 func (c *StreamCommand) Help() string {
 	helpText := `
 Usage:
-	elos stream
+	elos stream		start streaming the events
 	`
 	return strings.TrimSpace(helpText)
 }
@@ -59,10 +59,6 @@ func (c *StreamCommand) Run(args []string) int {
 		return failure
 	}
 
-	// TODO fix this assumption:
-	// asumption that this is a gaia db, which means that
-	// the only changes are event changes de facto, need to
-	// figure out how to transfer kind information over the wire
 	changes := *c.DB.Changes()
 
 	for {
