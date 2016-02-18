@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/elos/data"
-	"github.com/elos/elos/command"
 	"github.com/elos/models"
 	"github.com/mitchellh/cli"
 )
@@ -59,32 +58,32 @@ func (s *Session) run(args []string) {
 	ui := NewTextUI(s.input, s.Output)
 	c.Commands = map[string]cli.CommandFactory{
 		"habit": func() (cli.Command, error) {
-			return &command.HabitCommand{
-				UI:     UI,
-				UserID: Configuration.UserID,
-				DB:     db,
-			}, databaseError
+			return &HabitCommand{
+				UI:     ui,
+				UserID: s.user.Id,
+				DB:     s.db,
+			}, nil
 		},
 		"people": func() (cli.Command, error) {
-			return &command.PeopleCommand{
-				UI:     UI,
-				UserID: Configuration.UserID,
-				DB:     db,
-			}, databaseError
+			return &PeopleCommand{
+				UI:     ui,
+				UserID: s.user.Id,
+				DB:     s.db,
+			}, nil
 		},
 		"tag": func() (cli.Command, error) {
-			return &command.TagCommand{
-				UI:     UI,
-				UserID: Configuration.UserID,
-				DB:     db,
-			}, databaseError
+			return &TagCommand{
+				UI:     ui,
+				UserID: s.user.Id,
+				DB:     s.db,
+			}, nil
 		},
 		"stream": func() (cli.Command, error) {
-			return &command.StreamCommand{
-				UI:     UI,
-				UserID: Configuration.UserID,
-				DB:     db,
-			}, databaseError
+			return &StreamCommand{
+				UI:     ui,
+				UserID: s.user.Id,
+				DB:     s.db,
+			}, nil
 		},
 		"todo": func() (cli.Command, error) {
 			return &TodoCommand{
