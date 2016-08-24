@@ -3,17 +3,21 @@ package command_test
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/elos/data"
 	"github.com/elos/data/builtin/mem"
 	"github.com/elos/elos/command"
 	"github.com/elos/gaia"
 	"github.com/elos/gaia/services"
-	"github.com/elos/models/access"
-	"github.com/elos/models/user"
+	"github.com/elos/x/auth"
+	"github.com/elos/x/data/access"
+	"github.com/elos/x/models"
+	"github.com/elos/x/records"
 	"github.com/mitchellh/cli"
 	"golang.org/x/net/context"
 )
@@ -40,17 +44,25 @@ func TestSetupCurrentUser(t *testing.T) {
 	conf.Path = f.Name()
 	conf.Host = "fake" // not needed here because doesn't hit api
 
-	db := mem.NewDB()
-
-	t.Log("Creating test user")
-	u, _, err := user.Create(db, "public", "private")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log("Created")
+	mem.WithData(map[data.Kind][]data.Record{
+		data.Kind(models.Kind_USER.String()): []data.Record{
+			&models.User{
+				Id: "1",
+			},
+		},
+		data.Kind(models.Kind_CREDENTIAL.String()): []data.Record{
+			&models.Credential{
+				Id:      "2",
+				Type:    models.Credential_PASSWORD,
+				Public:  "public",
+				Private: "private",
+				OwnerId: "1",
+			},
+		},
+	})
 
 	// yes already account, then public key and private key and user id
-	ui.InputReader = bytes.NewBufferString(fmt.Sprintf("y\npublic\nprivate\n%s\n", u.Id))
+	ui.InputReader = bytes.NewBufferString(fmt.Sprintf("y\npublic\nprivate\n%s\n", "1"))
 
 	t.Log("running: `elos setup`")
 	code := c.Run([]string{})
@@ -80,8 +92,8 @@ func TestSetupCurrentUser(t *testing.T) {
 	t.Log("Configuration:\n%+v", conf)
 
 	// verify conf was changed
-	if conf.UserID != u.Id {
-		t.Fatalf("User id should be: %s", u.Id)
+	if conf.UserID != "1" {
+		t.Fatalf("User id should be: %s", "1")
 	}
 
 	if conf.PublicCredential != "public" {
@@ -106,6 +118,32 @@ func TestSetupNewUser(t *testing.T) {
 
 	db := mem.NewDB()
 
+	dbc, closers, err := access.NewTestDB(db)
+	if err != nil {
+		t.Fatalf("access.NewTestDB error: %v", err)
+	}
+	defer func(cs []io.Closer) {
+		for _, c := range cs {
+			c.Close()
+		}
+	}(closers)
+
+	authc, closers, err := auth.NewTestAuth(db)
+	if err != nil {
+		t.Fatalf("access.NewTestDB error: %v", err)
+	}
+	defer func(cs []io.Closer) {
+		for _, c := range cs {
+			c.Close()
+		}
+	}(closers)
+
+	webui, conn, err := records.WebUIBothLocal(dbc, authc)
+	if err != nil {
+		t.Fatalf("records.WebUIBothLocal error: %v", err)
+	}
+	defer conn.Close()
+
 	g := gaia.New(
 		context.Background(),
 		&gaia.Middleware{},
@@ -113,6 +151,7 @@ func TestSetupNewUser(t *testing.T) {
 			SMSCommandSessions: services.NewSMSMux(),
 			Logger:             services.NewTestLogger(t),
 			DB:                 db,
+			WebUIClient:        webui,
 		},
 	)
 
@@ -150,19 +189,26 @@ func TestSetupNewUser(t *testing.T) {
 		t.Fatalf("Output should have contained a 'account' for saying something about an account")
 	}
 
-	cred, err := access.Authenticate(db, "public", "private")
+	i, err := db.Query(data.Kind(models.Kind_CREDENTIAL.String())).Select(data.AttrMap{
+		"public":  "public",
+		"private": "private",
+	}).Execute()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	u, err := cred.Owner(db)
-	if err != nil {
-		t.Fatal(err)
+	cred := new(models.Credential)
+	if ok := i.Next(cred); !ok {
+		t.Fatal("no credentials found")
+	}
+
+	if got, want := cred.OwnerId, "1"; got != want {
+		t.Fatalf("cred.OwnerId: got %q, want %q", got, want)
 	}
 
 	// verify conf was changed
-	if conf.UserID != u.Id {
-		t.Fatalf("User id should be: %s", u.Id)
+	if got, want := conf.UserID, "1"; got != want {
+		t.Fatalf("conf.UserID: got %q, want %q", got, want)
 	}
 
 	if conf.PublicCredential != "public" {

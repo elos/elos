@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/elos/models"
+	"github.com/elos/x/models"
 	"github.com/mitchellh/cli"
 )
 
@@ -169,7 +169,7 @@ func (c *SetupCommand) promptNewUser() (*models.User, string, string, int) {
 		return nil, "", "", failure
 	}
 
-	u := models.NewUser()
+	u := new(models.User)
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {

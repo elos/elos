@@ -69,7 +69,7 @@ func (c *StreamCommand) Run(args []string) int {
 				return success
 			}
 
-			if change.ChangeKind != data.Update {
+			if change.ChangeKind != data.Update && change.ChangeKind != data.Create {
 				continue
 			}
 

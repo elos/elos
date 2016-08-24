@@ -50,15 +50,21 @@ func TestStream(t *testing.T) {
 	// wait for that change to go through the pipeline
 	select {
 	case change := <-*changes:
-		t.Logf("Change Recieved:\n%+v", change)
-		t.Logf("Record recieved:\n%+v", change.Record)
+		t.Logf("Change received:\n%+v", change)
+		t.Logf("Record received:\n%+v", change.Record)
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("timeout waiting for change")
 	}
 
 	// now check outputs
 	errput := ui.ErrorWriter.String()
+	if ui.ErrorWriter == nil {
+		errput = ""
+	}
 	output := ui.OutputWriter.String()
+	if ui.OutputWriter == nil {
+		output = ""
+	}
 	t.Logf("Error output:\n %s", errput)
 	t.Logf("Output:\n %s", output)
 
