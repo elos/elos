@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/elos/x/models"
 	"github.com/mitchellh/cli"
 )
 
@@ -156,4 +157,8 @@ func dateInput(ui cli.Ui, text string) (time.Time, error) {
 	}
 
 	return time.Date(year, time.Month(month), day, hour, min, 0, 0, time.Local), nil
+}
+
+func timestamp(t time.Time, err error) (*models.Timestamp, error) {
+	return models.TimestampFrom(t), err
 }

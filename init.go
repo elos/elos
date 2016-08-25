@@ -2,15 +2,20 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/user"
 	"path"
 
-	"github.com/elos/data"
+	"google.golang.org/grpc"
+
+	olddata "github.com/elos/data"
 	"github.com/elos/elos/command"
 	"github.com/elos/gaia"
 	"github.com/elos/models"
+	"github.com/elos/x/auth"
+	"github.com/elos/x/data"
 	"github.com/mitchellh/cli"
 )
 
@@ -39,7 +44,7 @@ func init() {
 
 	Configuration = c
 
-	var db data.DB
+	var db olddata.DB
 	var databaseError error
 
 	if Configuration.DirectDB {
@@ -56,6 +61,22 @@ func init() {
 			Client:   new(http.Client),
 		}
 	}
+	conn, err := grpc.Dial(
+		"elos.pw:4444",
+		grpc.WithPerRPCCredentials(
+			auth.RawCredentials(
+				Configuration.Credential.Public,
+				Configuration.Credential.Private,
+			),
+		),
+		grpc.WithInsecure(),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// don't close connection because we'd lose connection should
+	// move declaration of dbc higher in scope TODO(nclandolfi)
+	dbc := data.NewDBClient(conn)
 
 	Commands = map[string]cli.CommandFactory{
 		"habit": func() (cli.Command, error) {
@@ -95,9 +116,16 @@ func init() {
 		"todo": func() (cli.Command, error) {
 			return &command.TodoCommand{
 				UI:     UI,
-				UserID: Configuration.UserID,
-				DB:     db,
+				UserID: Configuration.Credential.OwnerID,
+				DB:     data.DB(dbc),
 			}, databaseError
+		},
+		"cal2": func() (cli.Command, error) {
+			return &command.Cal2Command{
+				UI:       UI,
+				UserID:   Configuration.Credential.OwnerID,
+				DBClient: dbc,
+			}, nil
 		},
 	}
 

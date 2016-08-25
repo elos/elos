@@ -17,6 +17,11 @@ type Config struct {
 	DB                                  string
 	PublicCredential, PrivateCredential string
 	UserID                              string
+	Credential                          struct {
+		Public  string
+		Private string
+		OwnerID string
+	}
 }
 
 // Read in the current configuration

@@ -8,16 +8,17 @@ import (
 
 	"github.com/elos/data"
 	"github.com/elos/data/builtin/mem"
-	"github.com/elos/models"
-	"github.com/elos/models/tag"
-	"github.com/elos/models/task"
+	oldmodels "github.com/elos/models"
+	"github.com/elos/x/models"
+	"github.com/elos/x/models/tag"
+	"github.com/elos/x/models/task"
 	"github.com/mitchellh/cli"
 )
 
-// --- Testing Helpers (newTestUser, newTestTask, newMockTodoCommand) {{{
+// --- Testing Helpers (newTestUser, newTestUserX, newTestTask, newMockTodoCommand) {{{
 
-func newTestUser(t *testing.T, db data.DB) *models.User {
-	u := models.NewUser()
+func newTestUser(t *testing.T, db data.DB) *oldmodels.User {
+	u := oldmodels.NewUser()
 	u.SetID(db.NewID())
 	u.CreatedAt = time.Now()
 	u.UpdatedAt = time.Now()
@@ -27,22 +28,31 @@ func newTestUser(t *testing.T, db data.DB) *models.User {
 	return u
 }
 
+func newTestUserX(t *testing.T, db data.DB) *models.User {
+	u := new(models.User)
+	u.SetID(db.NewID())
+	if err := db.Save(u); err != nil {
+		t.Fatalf("Error newTestUserX: %s", err)
+	}
+	return u
+}
+
 func newTestTask(t *testing.T, db data.DB, u *models.User) *models.Task {
-	task := models.NewTask()
-	task.SetID(db.NewID())
-	task.CreatedAt = time.Now()
-	task.OwnerId = u.ID().String()
-	task.UpdatedAt = time.Now()
-	if err := db.Save(task); err != nil {
+	tsk := new(models.Task)
+	tsk.SetID(db.NewID())
+	tsk.CreatedAt = models.TimestampFrom(time.Now())
+	tsk.OwnerId = u.ID().String()
+	tsk.UpdatedAt = models.TimestampFrom(time.Now())
+	if err := db.Save(tsk); err != nil {
 		t.Fatalf("Error newTestTask: %s", err)
 	}
-	return task
+	return tsk
 }
 
 func newMockTodoCommand(t *testing.T) (*cli.MockUi, data.DB, *models.User, *TodoCommand) {
 	ui := new(cli.MockUi)
 	db := mem.NewDB()
-	user := newTestUser(t, db)
+	user := newTestUserX(t, db)
 
 	return ui, db, user, &TodoCommand{
 		UI:     ui,
@@ -76,7 +86,7 @@ func TestTodoInadequateInitialization(t *testing.T) {
 	db := mem.NewDB()
 
 	// a new user, stored in db
-	user := newTestUser(t, db)
+	user := newTestUserX(t, db)
 
 	// note: this TodoCommand is missing a cli.Ui
 	missingUI := &TodoCommand{
@@ -332,7 +342,7 @@ func TestTodoFix(t *testing.T) {
 	// load a task into the db
 	task := newTestTask(t, db, user)
 	task.Name = "Take out the trash"
-	task.Deadline = time.Now().Add(-36 * time.Hour)
+	task.DeadlineAt = models.TimestampFrom(time.Now().Add(-36 * time.Hour))
 	if err := db.Save(task); err != nil {
 		t.Fatal(err)
 	}
@@ -383,7 +393,7 @@ func TestTodoFix(t *testing.T) {
 
 	t.Logf("Here's the task:\n%+v", task)
 
-	if !task.Deadline.After(time.Now()) {
+	if !task.DeadlineAt.Time().After(time.Now()) {
 		t.Fatalf("Expected the task's deadline to be after now")
 	}
 }
@@ -446,15 +456,11 @@ func TestTodoGoal(t *testing.T) {
 
 	t.Logf("Task:\n%+v", task)
 
-	// load tag
-	tg, err := tag.ForName(db, user, tag.Goal)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tg := "GOAL"
 
 	t.Logf("GOALS tag:\n%+v", tg)
 
-	tasks, err := tag.TasksFor(db, tg)
+	tasks, err := tag.TasksFor(db, c.UserID, tg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -483,12 +489,15 @@ func TestTodoGoals(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tg, err := tag.ForName(db, user, tag.Goal)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tg := "GOAL"
 
-	task.IncludeTag(tg)
+	for _, t := range task.Tags {
+		if t == tg {
+			goto dontadd
+		}
+	}
+	task.Tags = append(task.Tags, tg)
+dontadd:
 
 	if err := db.Save(task); err != nil {
 		t.Fatal(err)
@@ -599,13 +608,9 @@ func TestTodoListTag(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tagName := "TAG NAME"
-	_, err := tag.Task(db, task1, tagName)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ui.InputReader = bytes.NewBufferString("0\n") // select first and only tag
+	tagName := "TAGNAME"
+	tag.Task(task1, tagName)
+	ui.InputReader = bytes.NewBufferString("TAGNAME\n") // select first and only tag
 
 	t.Log("running: `elos todo list -t`")
 	code := c.Run([]string{"list", "-t"})
@@ -724,23 +729,22 @@ func TestTodoNew(t *testing.T) {
 
 	// now to verify that the tasks were created
 	// first top
-	top := models.NewTask()
+	top := new(models.Task)
 	if err := db.PopulateByField("name", "top", top); err != nil {
 		t.Fatal(err)
 	}
-	t.Log("'top'")
-	t.Logf("%+v", top)
+	t.Logf("top: %+v", top)
 
-	if len(top.PrerequisitesIds) != 3 {
+	if len(top.PrerequisiteIds) != 3 {
 		t.Fatal("Expected 'top' to have 3 prereqs")
 	}
 
-	if top.Deadline.Year() != 2020 {
+	if top.DeadlineAt.Time().Year() != 2020 {
 		t.Fatal("Expected 'top' to have a deadline in 2020")
 	}
 
 	// then sub
-	sub := models.NewTask()
+	sub := new(models.Task)
 	if err := db.PopulateByField("name", "sub", sub); err != nil {
 		t.Fatal(err)
 	}
@@ -748,13 +752,17 @@ func TestTodoNew(t *testing.T) {
 	t.Log("'sub'")
 	t.Logf("%+v", sub)
 
-	if len(sub.PrerequisitesIds) != 1 {
+	if len(sub.PrerequisiteIds) != 1 {
 		t.Fatal("Expected 'top' to have 3 prereqs")
 	}
 
-	prereqs, err := sub.Prerequisites(db)
-	if err != nil {
-		t.Fatal(err)
+	prereqs := make([]*models.Task, len(sub.PrerequisiteIds))
+	for i, id := range sub.PrerequisiteIds {
+		tsk := &models.Task{Id: id}
+		if err := db.PopulateByID(tsk); err != nil {
+			t.Fatalf("db.PopulateByID error: %v", err)
+		}
+		prereqs[i] = tsk
 	}
 
 	if len(prereqs) != 1 {
@@ -884,10 +892,7 @@ func TestTodoSuggest(t *testing.T) {
 	}
 
 	tagName := "random tag"
-	if _, err := tag.Task(db, tsk, tagName); err != nil {
-		t.Fatal(err)
-	}
-
+	tag.Task(tsk, tagName)
 	ui.InputReader = bytes.NewBufferString("y\n") // yes, start the task
 
 	t.Log("running: `elos todo suggest`")
@@ -948,16 +953,12 @@ func TestTodoTag(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tagName := "tag name"
-	tg, err := tag.ForName(db, user, tag.Name(tagName))
-	if err != nil {
-		t.Fatal(err)
-	}
+	tg := "tagname"
 
 	// load input
 	input := strings.Join([]string{
 		"0", // selecting the task to tag
-		"0", // selecting the tag
+		tg,  // specifying the tag
 	}, "\n")
 	ui.InputReader = bytes.NewBufferString(input)
 
@@ -989,24 +990,23 @@ func TestTodoTag(t *testing.T) {
 		t.Fatalf("Output should have asked for a task number")
 	}
 
-	if !strings.Contains(output, tagName) {
-		t.Fatalf("Output should have included the tag's name")
-	}
-
 	t.Log("Checking that the task now includes the tag")
 
-	if err := db.PopulateByID(task); err != nil {
+	tsk := &models.Task{
+		Id: task.Id,
+	}
+	if err := db.PopulateByID(tsk); err != nil {
 		t.Fatal(err)
 	}
 
-	t.Logf("Here's the task:\n%+v", task)
+	t.Logf("Here's the task:\n%+v", tsk)
 	t.Logf("Here's the tag:\n%+v", tg)
 
-	if len(task.TagsIds) != 1 {
+	if len(tsk.Tags) != 1 {
 		t.Fatal("Expected the task to have one tag")
 	}
 
-	if task.TagsIds[0] != tg.Id {
+	if tsk.Tags[0] != tg {
 		t.Fatal("Expected the task to have the tag")
 	}
 }
@@ -1023,16 +1023,12 @@ func TestTodoTagRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tagName := "tag name"
-	tg, err := tag.ForName(db, user, tag.Name(tagName))
-	if err != nil {
-		t.Fatal(err)
-	}
+	tg := "tag name"
 
 	// now it's tagged
-	task.IncludeTag(tg)
+	tag.Task(task, tg)
 
-	if err := db.Save(tg); err != nil {
+	if err := db.Save(task); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1071,20 +1067,23 @@ func TestTodoTagRemove(t *testing.T) {
 		t.Fatalf("Output should have asked for a task number")
 	}
 
-	if !strings.Contains(output, tagName) {
+	if !strings.Contains(output, tg) {
 		t.Fatalf("Output should have included the tag's name")
 	}
 
 	t.Log("Checking that the task is no longer tagged")
 
-	if err := db.PopulateByID(task); err != nil {
+	tsk := &models.Task{
+		Id: task.Id,
+	}
+	if err := db.PopulateByID(tsk); err != nil {
 		t.Fatal(err)
 	}
 
-	t.Logf("Here's the task:\n%+v", task)
+	t.Logf("Here's the task:\n%+v", tsk)
 	t.Logf("Here's the tag:\n%+v", tg)
 
-	if len(task.TagsIds) != 0 {
+	if len(tsk.Tags) != 0 {
 		t.Fatal("Expected the task to have no tag")
 	}
 }
@@ -1107,7 +1106,7 @@ func TestTodoToday(t *testing.T) {
 	tsk2 := newTestTask(t, db, user)
 	task2Name := "shouldn't show up"
 	tsk2.Name = task2Name
-	tsk2.CompletedAt = time.Now().Add(-48 * time.Hour)
+	tsk2.CompletedAt = models.TimestampFrom(time.Now().Add(-48 * time.Hour))
 	if err := db.Save(tsk2); err != nil {
 		t.Fatal(err)
 	}

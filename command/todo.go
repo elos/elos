@@ -8,11 +8,15 @@ import (
 	"time"
 
 	"github.com/elos/data"
-	"github.com/elos/models"
-	"github.com/elos/models/tag"
-	"github.com/elos/models/task"
+	"github.com/elos/x/models"
+	"github.com/elos/x/models/tag"
+	"github.com/elos/x/models/task"
 	"github.com/mitchellh/cli"
 )
+
+func dayEquivalent(t1 time.Time, t2 time.Time) bool {
+	return (t1.Year() == t2.Year() && t1.Month() == t2.Month() && t1.Day() == t2.Day())
+}
 
 // exit statuses
 const (
@@ -44,9 +48,6 @@ type TodoCommand struct {
 	// the command prompt, the task list is complete and
 	// definitive (reflects exactly what is in the database).
 	tasks []*models.Task
-
-	// The tags of the user given by c.UserID
-	tags map[data.ID]*models.Tag
 }
 
 // Synopsis is a one-line, short summary of the 'todo' command.
@@ -189,25 +190,23 @@ func (c *TodoCommand) init() int {
 
 	// Load the tasks
 
-	taskQuery := c.DB.Query(models.TaskKind)
-
-	taskQuery.Select(data.AttrMap{
-		"owner_id": c.UserID,
-	})
-
-	iter, err := taskQuery.Execute()
+	iter, err := c.DB.Query(data.Kind(models.Kind_TASK.String())).
+		Select(data.AttrMap{
+			"owner_id": c.UserID,
+		}).
+		Execute()
 	if err != nil {
-		c.errorf("data retrieval: querying tasks")
+		c.errorf("data retrieval: querying tasks: %v", err)
 		return failure
 	}
 
-	t := models.NewTask()
+	t := new(models.Task)
 	tasks := make([]*models.Task, 0)
 	for iter.Next(t) {
 		if !task.IsComplete(t) {
 			tasks = append(tasks, t)
-			t = models.NewTask()
 		}
+		t = new(models.Task)
 	}
 
 	if err := iter.Close(); err != nil {
@@ -218,28 +217,6 @@ func (c *TodoCommand) init() int {
 	c.tasks = tasks
 
 	sort.Sort(task.BySalience(c.tasks))
-
-	// Load the tags
-	c.tags = make(map[data.ID]*models.Tag)
-
-	iter, err = c.DB.Query(models.TagKind).Select(data.AttrMap{
-		"owner_id": c.UserID,
-	}).Execute()
-	if err != nil {
-		c.errorf("data retrieval: querying tags")
-		return failure
-	}
-
-	tag := models.NewTag()
-	for iter.Next(tag) {
-		c.tags[tag.ID()] = tag
-		tag = models.NewTag()
-	}
-
-	if err := iter.Close(); err != nil {
-		c.errorf("data retrieval: querying tags")
-		return failure
-	}
 
 	return success
 }
@@ -356,13 +333,11 @@ func (c *TodoCommand) runEdit() int {
 
 	switch attributeToEdit {
 	case "completed_at":
-		task.CompletedAt, err = dateInput(c.UI, "CompletedAt?")
+		task.CompletedAt, err = timestamp(dateInput(c.UI, "CompletedAt?"))
 	case "created_at":
-		task.CreatedAt, err = dateInput(c.UI, "CreatedAt?")
+		task.CreatedAt, err = timestamp(dateInput(c.UI, "CreatedAt?"))
 	case "deadline":
-		task.Deadline, err = dateInput(c.UI, "New deadline?")
-	case "deleted_at":
-		task.DeletedAt, err = dateInput(c.UI, "DeletedAt?")
+		task.DeadlineAt, err = timestamp(dateInput(c.UI, "New deadline?"))
 	case "name":
 		task.Name, err = stringInput(c.UI, "New name?")
 	default:
@@ -397,22 +372,22 @@ func (c *TodoCommand) runFix() int {
 	// Only need the incomplete tasks, which are in c.tasks
 	for i, t := range c.tasks {
 		// If the deadline is in the future
-		if t.Deadline.IsZero() || t.Deadline.Local().After(time.Now()) {
+		if t.DeadlineAt.Time().IsZero() || t.DeadlineAt.Time().Local().After(time.Now()) {
 			continue
 		}
 
 		neededFix = true
 
-		c.UI.Output(fmt.Sprintf("%d) %s %s", i, t.Name, t.Deadline.Format("Mon Jan 2 15:04")))
+		c.UI.Output(fmt.Sprintf("%d) %s %s", i, t.Name, t.DeadlineAt.Time().Format("Mon Jan 2 15:04")))
 
 	fix:
-		if t.Deadline, inputError = dateInput(c.UI, "New Deadline"); inputError != nil {
+		if t.DeadlineAt, inputError = timestamp(dateInput(c.UI, "New Deadline")); inputError != nil {
 			c.errorf("(subcommand fix) Input Error: %s", inputError)
 			return failure
 		}
 
-		if t.Deadline.Local().Before(time.Now()) {
-			c.UI.Output(fmt.Sprintf("Shoot, %s is still in the past, try again?", t.Deadline.Format("Mon Jan 2 15:04")))
+		if t.DeadlineAt.Time().Local().Before(time.Now()) {
+			c.UI.Output(fmt.Sprintf("Shoot, %s is still in the past, try again?", t.DeadlineAt.Time().Format("Mon Jan 2 15:04")))
 			goto fix
 		}
 
@@ -420,7 +395,7 @@ func (c *TodoCommand) runFix() int {
 			c.errorf("(subcommand fix) Error: saving task: %s", err)
 			return failure
 		} else {
-			c.UI.Output(fmt.Sprintf("Deadline changed to %s", t.Deadline.Local().Format("Mon Jan 2 15:04")))
+			c.UI.Output(fmt.Sprintf("Deadline changed to %s", t.DeadlineAt.Time().Local().Format("Mon Jan 2 15:04")))
 		}
 	}
 
@@ -445,13 +420,7 @@ func (c *TodoCommand) runGoal() int {
 		return failure
 	}
 
-	goalTag, err := tag.ForName(c.DB, u, tag.Goal)
-	if err != nil {
-		c.errorf("retrieving GOAL tag: %s", err)
-		return failure
-	}
-
-	task.IncludeTag(goalTag)
+	task.Tags = append(task.Tags, "GOAL")
 
 	if err := c.DB.Save(task); err != nil {
 		c.errorf("saving task: %s", err)
@@ -463,13 +432,7 @@ func (c *TodoCommand) runGoal() int {
 
 // runGoals runs the 'goals' subcommand, which prints the user's goals
 func (c *TodoCommand) runGoals() int {
-	goalTag, err := tag.ForName(c.DB, &models.User{Id: c.UserID}, tag.Goal)
-	if err != nil {
-		c.errorf("retrieving GOAL tag: %s", err)
-		return failure
-	}
-
-	tasks, err := tag.TasksFor(c.DB, goalTag)
+	tasks, err := tag.TasksFor(c.DB, c.UserID, "GOAL")
 	if err != nil {
 		c.errorf("retrieving GOAL tasks: %s", err)
 		return failure
@@ -508,11 +471,11 @@ func (c *TodoCommand) runList() int {
 // tasks cached in c.tasks according to the specified tag.
 func (c *TodoCommand) runListTag() int {
 	tg := c.promptSelectTag()
-	if tg == nil {
+	if tg == "" {
 		return success
 	}
 
-	tasks, err := tag.TasksFor(c.DB, tg)
+	tasks, err := tag.TasksFor(c.DB, c.UserID, tg)
 	if err != nil {
 		c.errorf("retrieving tasks: %s", err)
 		return failure
@@ -523,7 +486,7 @@ func (c *TodoCommand) runListTag() int {
 		ids[t.ID()] = true
 	}
 
-	c.UI.Output(fmt.Sprintf("%s Tasks:", tg.Name))
+	c.UI.Output(fmt.Sprintf("%s Tasks:", tg))
 	c.printTaskList(func(t *models.Task) bool {
 		_, ok := ids[t.ID()]
 		return ok
@@ -609,7 +572,7 @@ func (c *TodoCommand) runStop() int {
 	}
 
 	// Info, i.e., "You worked for 20m that time"
-	c.UI.Info(fmt.Sprintf("You worked for %s that time", tsk.Stages[len(tsk.Stages)-1].Sub(tsk.Stages[len(tsk.Stages)-2])))
+	c.UI.Info(fmt.Sprintf("You worked for %s that time", tsk.Stages[len(tsk.Stages)-1].Time().Sub(tsk.Stages[len(tsk.Stages)-2].Time())))
 	return success
 }
 
@@ -624,12 +587,9 @@ func (c *TodoCommand) runSuggest() int {
 	suggested := task.NewGraph(c.tasks).Suggest()
 
 	tagNames := ""
-	tags, err := suggested.Tags(c.DB)
-	if err != nil {
-		c.errorf("loading tags: %s", err)
-	}
+	tags := suggested.Tags
 	for _, t := range tags {
-		tagNames += fmt.Sprintf("[%s]", t.Name)
+		tagNames += fmt.Sprintf("[%s]", t)
 	}
 	if tagNames != "" {
 		tagNames += ": "
@@ -656,25 +616,25 @@ func (c *TodoCommand) runSuggest() int {
 // runTag runs the 'tag' subcommand, which uses elos'
 // tagging system to tag a particular task
 func (c *TodoCommand) runTag() int {
-	task, index := c.promptSelectTask()
+	tsk, index := c.promptSelectTask()
 	if index < 0 {
 		return failure
 	}
 
 	c.UI.Output("Which tag to add?")
-	tag := c.promptSelectTag()
-	if tag == nil {
+	tg := c.promptSelectTag()
+	if tg == "" {
 		return failure
 	}
 
-	task.IncludeTag(tag)
+	tag.Task(tsk, tg)
 
-	if err := c.DB.Save(task); err != nil {
+	if err := c.DB.Save(tsk); err != nil {
 		c.errorf("saving task")
 		return failure
 	}
 
-	c.UI.Output(fmt.Sprintf("Added '%s' to task", tag.Name))
+	c.UI.Output(fmt.Sprintf("Added '%s' to task", tg))
 
 	return success
 }
@@ -683,25 +643,31 @@ func (c *TodoCommand) runTag() int {
 // which removes a tag from a task
 func (c *TodoCommand) runRemoveTag() int {
 	c.UI.Output("Select which task to remove a tag from")
-	task, index := c.promptSelectTask()
+	tsk, index := c.promptSelectTask()
 	if index < 0 {
 		return failure
 	}
 
 	c.UI.Output("Which tag to remove?")
-	tag := c.promptSelectTagFromTask(task)
-	if tag == nil {
+	tg := c.promptSelectTagFromTask(tsk)
+	if tg == "" {
 		return failure
 	}
 
-	task.ExcludeTag(tag)
+	tgs := make([]string, 0)
+	for _, t := range tsk.Tags {
+		if t != tg {
+			tgs = append(tgs, t)
+		}
+	}
+	tsk.Tags = tgs
 
-	if err := c.DB.Save(task); err != nil {
+	if err := c.DB.Save(tsk); err != nil {
 		c.errorf("saving task")
 		return failure
 	}
 
-	c.UI.Output(fmt.Sprintf("Removed '%s' from task", tag.Name))
+	c.UI.Output(fmt.Sprintf("Removed '%s' from task", tg))
 
 	return success
 }
@@ -710,7 +676,7 @@ func (c *TodoCommand) runRemoveTag() int {
 //
 // Today prints the tasks that are were completed today
 func (c *TodoCommand) runToday() int {
-	iter, err := c.DB.Query(models.TaskKind).Select(data.AttrMap{
+	iter, err := c.DB.Query(data.Kind(models.Kind_TASK.String())).Select(data.AttrMap{
 		"owner_id": c.UserID,
 	}).Execute()
 
@@ -718,11 +684,11 @@ func (c *TodoCommand) runToday() int {
 		c.errorf("querying tasks: %s", err)
 	}
 
-	t := models.NewTask()
+	t := new(models.Task)
 	i := 0
 	for iter.Next(t) {
-		if task.IsComplete(t) && models.DayEquivalent(t.CompletedAt.Local(), time.Now()) {
-			c.UI.Output(fmt.Sprintf("%d) %s", i, String(t, c.tags)))
+		if task.IsComplete(t) && dayEquivalent(t.CompletedAt.Time().Local(), time.Now()) {
+			c.UI.Output(fmt.Sprintf("%d) %s", i, String(t)))
 			i++
 		}
 	}
@@ -749,8 +715,8 @@ PrintLoop:
 
 		// Tags
 		tagList := ""
-		for _, id := range t.TagsIds {
-			tagList += fmt.Sprintf(" [%s]", c.tags[data.ID(id)].Name)
+		for _, n := range t.Tags {
+			tagList += fmt.Sprintf(" [%s]", n)
 		}
 		if tagList != "" {
 			tagList += ": "
@@ -760,8 +726,8 @@ PrintLoop:
 
 		// Deadline
 		deadline := ""
-		if !t.Deadline.Equal(*new(time.Time)) {
-			deadline = fmt.Sprintf("(%s)", t.Deadline.Local().Format("Mon Jan 2 15:04"))
+		if !t.DeadlineAt.IsZero() {
+			deadline = fmt.Sprintf("(%s)", t.DeadlineAt.Time().Local().Format("Mon Jan 2 15:04"))
 		}
 
 		c.UI.Output(fmt.Sprintf("%d)%s%s %s\n\tSalience:%f; Time Spent:%s", i, tagList, t.Name, deadline, task.Salience(t), task.TimeSpent(t)))
@@ -814,9 +780,9 @@ func (c *TodoCommand) promptNewTask() (task *models.Task, err error) {
 		hasPrereqs  bool
 	)
 
-	task = models.NewTask()
+	task = new(models.Task)
 	task.SetID(c.DB.NewID())
-	task.CreatedAt = time.Now()
+	task.CreatedAt = models.TimestampFrom(time.Now())
 	task.OwnerId = c.UserID
 
 	if task.Name, err = stringInput(c.UI, "Name:"); err != nil {
@@ -826,7 +792,7 @@ func (c *TodoCommand) promptNewTask() (task *models.Task, err error) {
 	if hasDeadline, err = yesNo(c.UI, "Does it have a deadline?"); err != nil {
 		return
 	} else if hasDeadline {
-		if task.Deadline, err = dateInput(c.UI, "Deadline:"); err != nil {
+		if task.DeadlineAt, err = timestamp(dateInput(c.UI, "Deadline:")); err != nil {
 			return
 		}
 	}
@@ -853,7 +819,14 @@ func (c *TodoCommand) promptNewTask() (task *models.Task, err error) {
 						continue
 					}
 
-					task.IncludePrerequisite(c.tasks[indexOfCurrent])
+					addId := c.tasks[indexOfCurrent].Id
+					for _, id := range task.PrerequisiteIds {
+						if id == addId {
+							goto noadd
+						}
+					}
+					task.PrerequisiteIds = append(task.PrerequisiteIds, addId)
+				noadd:
 
 					if currentTaskPrereq, err = yesNo(c.UI, "Any more current prereqs?"); err != nil {
 						return
@@ -871,7 +844,7 @@ func (c *TodoCommand) promptNewTask() (task *models.Task, err error) {
 					return
 				}
 
-				task.IncludePrerequisite(newTask)
+				task.PrerequisiteIds = append(task.PrerequisiteIds, newTask.Id)
 
 				if newTaskPrereq, err = yesNo(c.UI, "Any more new prereqs?"); err != nil {
 					return
@@ -881,7 +854,7 @@ func (c *TodoCommand) promptNewTask() (task *models.Task, err error) {
 		}
 	}
 
-	task.UpdatedAt = time.Now()
+	task.UpdatedAt = models.TimestampFrom(time.Now())
 
 	// if successful save
 	if err = c.DB.Save(task); err == nil {
@@ -892,60 +865,27 @@ func (c *TodoCommand) promptNewTask() (task *models.Task, err error) {
 	return
 }
 
-func (c *TodoCommand) printTagList(tags []*models.Tag) {
+func (c *TodoCommand) printTagList(tags []string) {
 	for i, t := range tags {
-		c.UI.Output(fmt.Sprintf("%d) %s", i, t.Name))
+		c.UI.Output(fmt.Sprintf("%d) %s", i, t))
 	}
 }
 
-func (c *TodoCommand) promptSelectTag() *models.Tag {
-	if len(c.tags) == 0 {
-		c.UI.Warn("You do not have any tags")
-		return nil
-	}
-
-	tags := make([]*models.Tag, len(c.tags))
-	count := 0
-	for _, t := range c.tags {
-		tags[count] = t
-		count++
-	}
-
-	sort.Sort(tag.ByName(tags))
-
-	c.printTagList(tags)
-
-	var (
-		indexOfCurrent int
-		err            error
-	)
-
-	if indexOfCurrent, err = intInput(c.UI, "Which number?"); err != nil {
-		c.errorf("input error: %s", err)
-		return nil
-	}
-
-	if indexOfCurrent < 0 || indexOfCurrent > len(c.tasks)-1 {
-		c.UI.Warn(fmt.Sprintf("%d is not a valid index. Need a # in (0,...,%d)", indexOfCurrent, len(c.tags)-1))
-		return nil
-	}
-
-	return tags[indexOfCurrent]
+func (c *TodoCommand) promptSelectTag() string {
+	s, _ := stringInput(c.UI, "Tag name")
+	return s
 }
 
-func (c *TodoCommand) promptSelectTagFromTask(t *models.Task) *models.Tag {
-	tags, err := t.Tags(c.DB)
-	if err != nil {
-		c.errorf("data Error: %s", err)
-		return nil
-	}
+func (c *TodoCommand) promptSelectTagFromTask(t *models.Task) string {
+	var err error
+	tags := t.Tags
 
 	if len(tags) == 0 {
 		c.UI.Warn("That task has no tags")
-		return nil
+		return ""
 	}
 
-	sort.Sort(tag.ByName(tags))
+	sort.Strings(tags)
 
 	c.printTagList(tags)
 
@@ -953,22 +893,22 @@ func (c *TodoCommand) promptSelectTagFromTask(t *models.Task) *models.Tag {
 
 	if indexOfCurrent, err = intInput(c.UI, "Which number?"); err != nil {
 		c.errorf("input error: %s", err)
-		return nil
+		return ""
 	}
 
 	if indexOfCurrent < 0 || indexOfCurrent > len(c.tasks)-1 {
-		c.UI.Warn(fmt.Sprintf("%d is not a valid index. Need a # in (0,...,%d)", indexOfCurrent, len(c.tags)-1))
-		return nil
+		c.UI.Warn(fmt.Sprintf("%d is not a valid index. Need a # in (0,...,%d)", indexOfCurrent, len(tags)-1))
+		return ""
 	}
 
 	return tags[indexOfCurrent]
 }
 
-func String(t *models.Task, tags map[data.ID]*models.Tag) string {
+func String(t *models.Task) string {
 	// Tags
 	tagList := ""
-	for _, id := range t.TagsIds {
-		tagList += fmt.Sprintf(" [%s]", tags[data.ID(id)].Name)
+	for _, n := range t.Tags {
+		tagList += fmt.Sprintf(" [%s]", n)
 	}
 	if tagList != "" {
 		tagList += ": "
