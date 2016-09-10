@@ -127,6 +127,12 @@ func init() {
 				DBClient: dbc,
 			}, nil
 		},
+		"records": func() (cli.Command, error) {
+			return &command.RecordsCommand{
+				UI:       UI,
+				UserID:   Configuration.Credential.OwnerID,
+				DBClient: dbc,
+			}, nil
+		},
 	}
-
 }
