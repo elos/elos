@@ -18,8 +18,8 @@ import (
 	calendar "google.golang.org/api/calendar/v3"
 
 	"github.com/elos/x/data"
-	"github.com/elos/x/models"
 	"github.com/elos/x/models/cal"
+	models "github.com/elos/x/models/proto"
 	"github.com/mitchellh/cli"
 )
 
@@ -98,7 +98,8 @@ func (c *Cal2Command) runListDays(args []string, num int) int {
 			{
 				Op:    data.Filter_EQ,
 				Field: "owner_id",
-				Reference: &data.Filter_String_{
+				Reference: &models.Value{
+					Type:    models.Value_STRING,
 					String_: c.UserID,
 				},
 			},
@@ -142,7 +143,8 @@ func ingestEvent(ctx context.Context, dbc data.DBClient, uid string, e *calendar
 			&data.Filter{
 				Op:    data.Filter_EQ,
 				Field: "labels.google/event/id",
-				Reference: &data.Filter_String_{
+				Reference: &models.Value{
+					Type:    models.Value_STRING,
 					String_: e.Id,
 				},
 			},

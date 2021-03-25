@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/elos/data"
-	"github.com/elos/x/models"
+	models "github.com/elos/x/models/proto"
 	"github.com/elos/x/models/tag"
 	"github.com/elos/x/models/task"
 	"github.com/mitchellh/cli"

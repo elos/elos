@@ -177,8 +177,11 @@ func TestCal(t *testing.T) {
 
 	for n, c := range cases {
 		t.Run(n, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
 			db := mem.NewDB()
-			dbc, conn, err := data.DBBothLocal(db)
+			dbc, conn, err := data.DBBothLocal(ctx, db)
 			if err != nil {
 				t.Fatalf("data.DBBothLocal error: %v", err)
 			}

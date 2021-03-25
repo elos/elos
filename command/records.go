@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/elos/x/data"
-	"github.com/elos/x/models"
+	models "github.com/elos/x/models/proto"
 	"github.com/mitchellh/cli"
 )
 

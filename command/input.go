@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elos/x/models"
+	models "github.com/elos/x/models/proto"
 	"github.com/mitchellh/cli"
 )
 

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/elos/x/models"
+	models "github.com/elos/x/models/proto"
 	"github.com/mitchellh/cli"
 )
 

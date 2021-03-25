@@ -116,9 +116,11 @@ func TestSetupNewUser(t *testing.T) {
 	}
 	defer f.Close()
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	db := mem.NewDB()
 
-	dbc, closers, err := access.NewTestDB(db)
+	dbc, _, closers, err := access.NewTestDB(ctx, db)
 	if err != nil {
 		t.Fatalf("access.NewTestDB error: %v", err)
 	}
@@ -128,7 +130,7 @@ func TestSetupNewUser(t *testing.T) {
 		}
 	}(closers)
 
-	authc, closers, err := auth.NewTestAuth(db)
+	authc, closers, err := auth.NewTestAuth(ctx, db)
 	if err != nil {
 		t.Fatalf("access.NewTestDB error: %v", err)
 	}
